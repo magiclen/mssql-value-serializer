@@ -4,7 +4,7 @@ use std::{
     ops::Deref,
 };
 
-use crate::{SqlLiteralError, SqlServerLiteral};
+use crate::{SqlLiteralError, SqlServerLiteral, SqlServerLiteralForValueList};
 
 struct SqlServerLiteralWrapperDebugFormatter<'a, T: SqlServerLiteral + ?Sized>(&'a T);
 
@@ -17,10 +17,47 @@ impl<'a, T: SqlServerLiteral + ?Sized> Debug for SqlServerLiteralWrapperDebugFor
 
 /// A wrapper type for any value implementing [`SqlServerLiteral`].
 ///
-/// This type allows you to easily convert a value into a type that implements [`Display`] nad [`serde::Serialize`], or can be stored as a trait object (`&dyn SqlServerLiteral`) while preserving its SQL Server literal behavior.
+/// This type allows you to easily convert a value into one that implements both [`Display`] and [`serde::Serialize`], enabling SQL Server literal behavior.
+///
+/// # Examples
+///
+/// ```rust
+/// use mssql_value_serializer::SqlServerLiteralWrapper;
+///
+/// let needle = "Some text";
+///
+/// let mut sql = format!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name = {value}
+///     ",
+///     value = SqlServerLiteralWrapper::new(needle)
+/// );
+///
+/// assert_eq!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name = N'Some text'
+///     ",
+///     sql
+/// );
+/// ```
 pub struct SqlServerLiteralWrapper<T: SqlServerLiteral>(T);
 
 impl<T: SqlServerLiteral> SqlServerLiteralWrapper<T> {
+    #[inline]
+    pub const fn new(value: T) -> Self {
+        Self(value)
+    }
+
     /// Consumes the wrapper and returns the inner value.
     #[inline]
     pub fn into_inner(self) -> T {
@@ -44,13 +81,6 @@ impl<T: SqlServerLiteral> Display for SqlServerLiteralWrapper<T> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.append_sql_literal_fmt(f).map_err(|_| fmt::Error)
-    }
-}
-
-impl<T: SqlServerLiteral> SqlServerLiteralWrapper<T> {
-    #[inline]
-    pub const fn new(value: T) -> Self {
-        Self(value)
     }
 }
 
@@ -267,6 +297,137 @@ impl<'a> serde::Serialize for SqlServerLiteralDynWrapper<'a> {
 
         self.deref()
             .append_sql_literal(&mut s)
+            .map_err(|error| serde::ser::Error::custom(error.to_string()))?;
+
+        serializer.serialize_str(s.as_str())
+    }
+}
+
+struct SqlServerLiteralForValueListWrapperDebugFormatter<
+    'a,
+    T: SqlServerLiteralForValueList + ?Sized,
+>(&'a T);
+
+impl<'a, T: SqlServerLiteralForValueList + ?Sized> Debug
+    for SqlServerLiteralForValueListWrapperDebugFormatter<'a, T>
+{
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.0.append_sql_literal_for_value_list_fmt(f).map_err(|_| fmt::Error)
+    }
+}
+
+/// A wrapper type for any value implementing [`SqlServerLiteralForValueList`].
+///
+/// This type allows you to easily convert a value into one that implements both [`Display`] and [`serde::Serialize`], enabling it to exhibit SQL Server literal value list behavior.
+///
+/// # Examples
+///
+/// ```rust
+/// use mssql_value_serializer::{SqlServerLiteral, SqlServerLiteralForValueListWrapper};
+///
+/// let needles: &[&str] = &["Some text", "Foo", "Bar"];
+///
+/// let mut sql = format!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name IN ({value})
+///     ",
+///     value = SqlServerLiteralForValueListWrapper::new(needles)
+/// );
+///
+/// assert_eq!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name IN (N'Some text', N'Foo', N'Bar')
+///     ",
+///     sql
+/// );
+pub struct SqlServerLiteralForValueListWrapper<T: SqlServerLiteralForValueList>(T);
+
+impl<T: SqlServerLiteralForValueList> SqlServerLiteralForValueListWrapper<T> {
+    #[inline]
+    pub const fn new(value: T) -> Self {
+        Self(value)
+    }
+
+    /// Consumes the wrapper and returns the inner value.
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T: SqlServerLiteralForValueList> Debug for SqlServerLiteralForValueListWrapper<T> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let mut debug = f.debug_tuple("SqlServerLiteralForValueListWrapper");
+
+        debug.field(&SqlServerLiteralForValueListWrapperDebugFormatter(self));
+
+        debug.finish()
+    }
+}
+
+impl<T: SqlServerLiteralForValueList> Display for SqlServerLiteralForValueListWrapper<T> {
+    /// Formats the wrapped value as a SQL Server literal.
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.0.append_sql_literal_for_value_list_fmt(f).map_err(|_| fmt::Error)
+    }
+}
+
+impl<T: SqlServerLiteralForValueList> From<T> for SqlServerLiteralForValueListWrapper<T> {
+    #[inline]
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<T: SqlServerLiteralForValueList> Deref for SqlServerLiteralForValueListWrapper<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: SqlServerLiteralForValueList> SqlServerLiteralForValueList
+    for SqlServerLiteralForValueListWrapper<T>
+{
+    #[inline]
+    fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError> {
+        self.0.append_sql_literal_for_value_list(out)
+    }
+
+    #[inline]
+    fn append_sql_literal_for_value_list_fmt(
+        &self,
+        out: &mut Formatter<'_>,
+    ) -> Result<(), SqlLiteralError> {
+        self.0.append_sql_literal_for_value_list_fmt(out)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<T: SqlServerLiteralForValueList> serde::Serialize for SqlServerLiteralForValueListWrapper<T> {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer, {
+        let mut s = String::new();
+
+        self.0
+            .append_sql_literal_for_value_list(&mut s)
             .map_err(|error| serde::ser::Error::custom(error.to_string()))?;
 
         serializer.serialize_str(s.as_str())

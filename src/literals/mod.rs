@@ -98,6 +98,38 @@ impl_float!(f32, f64);
 
 // ----- Strings -----
 
+fn push_nstring_literal_char(ch: &char, out: &mut impl Write) -> fmt::Result {
+    out.write_str("N'")?;
+
+    if *ch == '\'' {
+        out.write_char('\'')?;
+    }
+
+    out.write_char(*ch)?;
+
+    out.write_char('\'')?;
+
+    Ok(())
+}
+
+impl SqlServerLiteral for char {
+    #[inline]
+    fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError> {
+        push_nstring_literal_char(self, out).unwrap();
+
+        Ok(())
+    }
+
+    #[inline]
+    fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
+        push_nstring_literal_char(self, out).unwrap();
+
+        Ok(())
+    }
+}
+
+impl_dyn_wrapper!(char);
+
 fn push_nstring_literal(s: &str, out: &mut impl Write) -> fmt::Result {
     out.write_str("N'")?;
 
@@ -238,7 +270,7 @@ impl<T: SqlServerLiteral + 'static> From<Option<T>> for SqlServerLiteralDynWrapp
     }
 }
 
-impl<'a, T: SqlServerLiteral + 'static> From<&'a Option<&'a T>> for SqlServerLiteralDynWrapper<'a>
+impl<'a, T: ?Sized> From<&'a Option<&'a T>> for SqlServerLiteralDynWrapper<'a>
 where
     &'a T: SqlServerLiteral,
 {

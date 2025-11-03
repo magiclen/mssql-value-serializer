@@ -46,7 +46,7 @@ pub(crate) fn append_sql_literal_for_value_list_from_iter<'a, T>(
     out: &mut String,
 ) -> Result<(), SqlLiteralError>
 where
-    T: SqlServerLiteral + 'a, {
+    T: ?Sized + SqlServerLiteral + 'a, {
     if let Some(value) = iter.next() {
         value.append_sql_literal(out)?;
 
@@ -66,7 +66,7 @@ pub(crate) fn append_sql_literal_for_value_list_from_iter_fmt<'a, T>(
     out: &mut Formatter<'_>,
 ) -> Result<(), SqlLiteralError>
 where
-    T: SqlServerLiteral + 'a, {
+    T: ?Sized + SqlServerLiteral + 'a, {
     if let Some(value) = iter.next() {
         value.append_sql_literal_fmt(out)?;
 

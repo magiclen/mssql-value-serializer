@@ -31,6 +31,7 @@ fn test_numbers() {
 
 #[test]
 fn test_strings() {
+    test_literal("N'中'", '中');
     test_literal("N'中文字'", "中文字");
     test_literal("N'中文字'", String::from("中文字"));
     test_literal("N'中文字'", Cow::from("中文字"));
