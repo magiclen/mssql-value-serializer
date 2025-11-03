@@ -1,6 +1,6 @@
 use std::fmt::Formatter;
 
-use crate::{AppendSQLLiteralInValueListError, SqlLiteralError, SqlServerLiteral};
+use crate::{SqlLiteralError, SqlLiteralErrorWithIndex, SqlServerLiteral};
 
 /// Appends a list of values as a SQL Server `IN` literal to the given string.
 ///
@@ -18,11 +18,11 @@ use crate::{AppendSQLLiteralInValueListError, SqlLiteralError, SqlServerLiteral}
 pub fn append_sql_literal_for_value_list(
     values: &[&dyn SqlServerLiteral],
     out: &mut String,
-) -> Result<(), AppendSQLLiteralInValueListError> {
+) -> Result<(), SqlLiteralErrorWithIndex> {
     let mut iter = values.iter().enumerate();
 
     if let Some((index, value)) = iter.next() {
-        value.append_sql_literal(out).map_err(|error| AppendSQLLiteralInValueListError {
+        value.append_sql_literal(out).map_err(|error| SqlLiteralErrorWithIndex {
             index,
             error,
         })?;
@@ -30,7 +30,7 @@ pub fn append_sql_literal_for_value_list(
         for (index, value) in iter {
             out.push_str(", ");
 
-            value.append_sql_literal(out).map_err(|error| AppendSQLLiteralInValueListError {
+            value.append_sql_literal(out).map_err(|error| SqlLiteralErrorWithIndex {
                 index,
                 error,
             })?;
