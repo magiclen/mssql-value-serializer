@@ -1,0 +1,47 @@
+[package]
+name = "mssql-value-serializer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+repository = "https://github.com/magiclen/mssql-value-serializer"
+homepage = "https://magiclen.org/mssql-value-serializer"
+keywords = ["mssql", "sql-server", "db", "database"]
+categories = ["database", "text-processing"]
+description = "Convert Rust values into SQL Server-compatible literal expressions, enabling dynamic SQL generation without parameter count limitations."
+license = "MIT"
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
+
+[dependencies]
+const-hex = "1"
+
+serde = { version = "1", optional = true }
+
+chrono = { version = "0.4", optional = true }
+time = { version = "0.3", optional = true }
+
+rust_decimal = { version = "1", optional = true }
+bigdecimal = { version = "0.4", optional = true }
+num-bigint = { version = "0.4", optional = true }
+
+[dev-dependencies]
+time = { version = "0.3", features = ["parsing"] }
+
+[features]
+default = ["all", "stable-local"]
+
+serde = ["dep:serde"]
+
+chrono = ["dep:chrono"]
+time = ["dep:time"]
+
+rust_decimal = ["dep:rust_decimal"]
+bigdecimal = ["dep:bigdecimal", "num-bigint"]
+num-bigint = ["dep:num-bigint"]
+
+stable-local = ["chrono"]      # if you can ensure that the local timezone does not use DST in your case, enable this feature to use a fixed offset for DateTime<Local> to make the format process faster
+
+all = ["serde", "chrono", "time", "rust_decimal", "bigdecimal"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs_1_92"]
