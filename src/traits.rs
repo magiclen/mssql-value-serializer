@@ -142,21 +142,6 @@ impl SqlServerLiteralForValueList for Vec<Box<dyn SqlServerLiteral>> {
     }
 }
 
-impl SqlServerLiteralForValueList for HashSet<Box<dyn SqlServerLiteral>> {
-    #[inline]
-    fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_box_iter(self.iter(), out)
-    }
-
-    #[inline]
-    fn append_sql_literal_for_value_list_fmt(
-        &self,
-        out: &mut Formatter<'_>,
-    ) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_box_iter_fmt(self.iter(), out)
-    }
-}
-
 impl SqlServerLiteralForValueList for Vec<&dyn SqlServerLiteral> {
     #[inline]
     fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError> {
@@ -172,7 +157,7 @@ impl SqlServerLiteralForValueList for Vec<&dyn SqlServerLiteral> {
     }
 }
 
-impl SqlServerLiteralForValueList for HashSet<&dyn SqlServerLiteral> {
+impl SqlServerLiteralForValueList for &[&dyn SqlServerLiteral] {
     #[inline]
     fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError> {
         append_sql_literal_for_value_list_from_dyn_iter(self.iter(), out)
