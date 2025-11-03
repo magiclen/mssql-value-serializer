@@ -128,6 +128,49 @@ impl<T: SqlServerLiteral> serde::Serialize for SqlServerLiteralWrapper<T> {
     }
 }
 
+/// A wrapper type that can hold either a borrowed or owned [`dyn SqlServerLiteral`] value.
+///
+/// This type allows generic code to handle both borrowed and owned SQL literal trait objects uniformly. It is primarily used when dynamically storing or formatting SQL literal values, without having to commit to a single ownership model.
+///
+/// # Examples
+///
+/// ```rust
+/// use mssql_value_serializer::{
+///     SqlServerLiteralDynWrapper, SqlServerLiteralForValueListWrapper,
+/// };
+///
+/// let s = String::from("Some text");
+///
+/// let mut values: Vec<SqlServerLiteralDynWrapper<'_>> = vec![
+///     SqlServerLiteralDynWrapper::from(1u8),
+///     SqlServerLiteralDynWrapper::from(2i8),
+///     SqlServerLiteralDynWrapper::from(&s),
+/// ];
+///
+/// let mut sql = format!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name IN ({value})
+///     ",
+///     value = SqlServerLiteralForValueListWrapper::new(values)
+/// );
+///
+/// assert_eq!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name IN (1, 2, N'Some text')
+///     ",
+///     sql
+/// );
+/// ```
 pub enum SqlServerLiteralDynWrapper<'a> {
     Borrowed(&'a dyn SqlServerLiteral),
     Owned(Box<dyn SqlServerLiteral>),
