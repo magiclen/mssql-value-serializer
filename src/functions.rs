@@ -2,7 +2,7 @@ use std::fmt::Formatter;
 
 use crate::{SqlLiteralError, SqlLiteralErrorWithIndex, SqlServerLiteral};
 
-/// Appends a list of values as a SQL Server `IN` literal to the given string.
+/// Appends a comma-separated list of SQL Server literals to the provided output string.
 ///
 /// # Example
 ///
