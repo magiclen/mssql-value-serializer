@@ -1,6 +1,6 @@
 [package]
 name = "mssql-value-serializer"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.81"
 repository = "https://github.com/magiclen/mssql-value-serializer"
@@ -22,6 +22,7 @@ time = { version = "0.3", optional = true }
 rust_decimal = { version = "1", optional = true }
 bigdecimal = { version = "0.4", optional = true }
 num-bigint = { version = "0.4", optional = true }
+uuid = { version = "1", optional = true }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["parsing"] }
@@ -35,10 +36,11 @@ time = ["dep:time"]
 rust_decimal = ["dep:rust_decimal"]
 bigdecimal = ["dep:bigdecimal", "num-bigint"]
 num-bigint = ["dep:num-bigint"]
+uuid = ["dep:uuid"]
 
 stable-local = ["chrono"]      # if you can ensure that the local timezone does not use DST in your case, enable this feature to use a fixed offset for DateTime<Local> to make the format process faster
 
-all = ["serde", "chrono", "time", "rust_decimal", "bigdecimal"]
+all = ["serde", "chrono", "time", "rust_decimal", "bigdecimal", "uuid"]
 
 [package.metadata.docs.rs]
 all-features = true

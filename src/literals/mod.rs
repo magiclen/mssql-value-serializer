@@ -8,6 +8,8 @@ mod num_bigint;
 mod rust_decimal;
 #[cfg(feature = "time")]
 mod time;
+#[cfg(feature = "uuid")]
+mod uuid;
 
 use std::fmt::{self, Formatter, Write};
 

@@ -50,6 +50,7 @@ assert_eq!("
     * `chrono` and `stable-local`: If your local timezone does not observe daylight saving time (DST), enable this feature to use a fixed offset for `DateTime<Local>`, improving formatting performance.
 * `rust_decimal` or `bigdecimal`: Adds support for SQL Server decimal/numeric types.
 * `num-bigint`: Adds support for SQL Server decimal/numeric types (only integers).
+* `uuid`: Adds support for SQL Server UNIQUEIDENTIFIER type.
 
 ## Crates.io
 
