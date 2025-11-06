@@ -42,7 +42,7 @@ use crate::{SqlLiteralError, SqlServerLiteral, SqlServerLiteralForValueList};
 ///     sql
 /// );
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SqlServerLiteralWrapper<T: SqlServerLiteral>(T);
 
 impl<T: SqlServerLiteral> SqlServerLiteralWrapper<T> {
@@ -502,7 +502,7 @@ impl<T: SqlServerLiteralForValueList> serde::Serialize for SqlServerLiteralForVa
 ///     sql
 /// );
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SqlServerCharWrapper<'a, T>(T, PhantomData<&'a ()>);
 
 impl<'a, T> SqlServerCharWrapper<'a, T> {
