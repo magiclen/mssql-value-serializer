@@ -100,6 +100,20 @@ impl_float!(f32, f64);
 
 // ----- Strings -----
 
+pub(crate) fn push_string_literal_char(ch: &char, out: &mut impl Write) -> fmt::Result {
+    out.write_char('\'')?;
+
+    if *ch == '\'' {
+        out.write_char('\'')?;
+    }
+
+    out.write_char(*ch)?;
+
+    out.write_char('\'')?;
+
+    Ok(())
+}
+
 fn push_nstring_literal_char(ch: &char, out: &mut impl Write) -> fmt::Result {
     out.write_str("N'")?;
 
@@ -131,6 +145,22 @@ impl SqlServerLiteral for char {
 }
 
 impl_dyn_wrapper!(char);
+
+pub(crate) fn push_string_literal(s: &str, out: &mut impl Write) -> fmt::Result {
+    out.write_char('\'')?;
+
+    for ch in s.chars() {
+        if ch == '\'' {
+            out.write_char('\'')?;
+        }
+
+        out.write_char(ch)?;
+    }
+
+    out.write_char('\'')?;
+
+    Ok(())
+}
 
 fn push_nstring_literal(s: &str, out: &mut impl Write) -> fmt::Result {
     out.write_str("N'")?;

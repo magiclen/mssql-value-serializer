@@ -8,7 +8,7 @@ Prepared statements are commonly used to improve performance and security. By se
 ## Usage
 
 ```rust
-use mssql_value_serializer::{SqlServerLiteralWrapper, SqlServerLiteralDynWrapper, SqlServerLiteralForValueListWrapper};
+use mssql_value_serializer::{SqlServerCharWrapper, SqlServerLiteralWrapper, SqlServerLiteralDynWrapper, SqlServerLiteralForValueListWrapper};
 
 let sql = format!("
     SELECT
@@ -26,6 +26,24 @@ assert_eq!("
         [table]
     WHERE
         [name] = N'David'
+", sql);
+
+let sql = format!("
+    SELECT
+        *
+    FROM
+        [table]
+    WHERE
+        [name] = {name}
+", name = SqlServerCharWrapper::new("David")); // use `SqlServerCharWrapper` to format a value into a non-Unicode character string
+
+assert_eq!("
+    SELECT
+        *
+    FROM
+        [table]
+    WHERE
+        [name] = 'David'
 ", sql);
 
 let sql = format!("
@@ -62,5 +80,6 @@ mod wrappers;
 
 pub use errors::*;
 pub use functions::*;
+pub(crate) use literals::*;
 pub use traits::*;
 pub use wrappers::*;

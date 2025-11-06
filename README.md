@@ -31,6 +31,24 @@ assert_eq!("
 ", sql);
 
 let sql = format!("
+    SELECT
+        *
+    FROM
+        [table]
+    WHERE
+        [name] = {name}
+", name = SqlServerCharWrapper::new("David")); // use `SqlServerCharWrapper` to format a value into a non-Unicode character string
+
+assert_eq!("
+    SELECT
+        *
+    FROM
+        [table]
+    WHERE
+        [name] = 'David'
+", sql);
+
+let sql = format!("
     INSERT INTO [table]([id], [name], [disabled])
         VALUES
             ({values})

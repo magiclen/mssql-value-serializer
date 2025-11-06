@@ -1,19 +1,11 @@
 use std::{
     borrow::Cow,
     fmt::{self, Debug, Display, Formatter},
+    marker::PhantomData,
     ops::Deref,
 };
 
 use crate::{SqlLiteralError, SqlServerLiteral, SqlServerLiteralForValueList};
-
-struct SqlServerLiteralWrapperDebugFormatter<'a, T: SqlServerLiteral + ?Sized>(&'a T);
-
-impl<'a, T: SqlServerLiteral + ?Sized> Debug for SqlServerLiteralWrapperDebugFormatter<'a, T> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.0.append_sql_literal_fmt(f).map_err(|_| fmt::Error)
-    }
-}
 
 /// A wrapper type for any value implementing [`SqlServerLiteral`].
 ///
@@ -50,6 +42,7 @@ impl<'a, T: SqlServerLiteral + ?Sized> Debug for SqlServerLiteralWrapperDebugFor
 ///     sql
 /// );
 /// ```
+#[derive(Debug)]
 pub struct SqlServerLiteralWrapper<T: SqlServerLiteral>(T);
 
 impl<T: SqlServerLiteral> SqlServerLiteralWrapper<T> {
@@ -62,17 +55,6 @@ impl<T: SqlServerLiteral> SqlServerLiteralWrapper<T> {
     #[inline]
     pub fn into_inner(self) -> T {
         self.0
-    }
-}
-
-impl<T: SqlServerLiteral> Debug for SqlServerLiteralWrapper<T> {
-    #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut debug = f.debug_tuple("SqlServerLiteralWrapper");
-
-        debug.field(&SqlServerLiteralWrapperDebugFormatter(self));
-
-        debug.finish()
     }
 }
 
@@ -178,8 +160,16 @@ pub enum SqlServerLiteralDynWrapper<'a> {
 
 impl Debug for SqlServerLiteralDynWrapper<'_> {
     /// Formats the wrapped value as a SQL Server literal.
-    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        struct SqlServerLiteralDynWrapperDebugFormatter<'a, T: SqlServerLiteral + ?Sized>(&'a T);
+
+        impl<'a, T: SqlServerLiteral + ?Sized> Debug for SqlServerLiteralDynWrapperDebugFormatter<'a, T> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                self.0.append_sql_literal_fmt(f).map_err(|_| fmt::Error)
+            }
+        }
+
         let (name, r) = match self {
             Self::Borrowed(v) => ("Borrowed", *v),
             Self::Owned(v) => ("Owned", v.as_ref()),
@@ -187,7 +177,7 @@ impl Debug for SqlServerLiteralDynWrapper<'_> {
 
         let mut debug = f.debug_tuple(name);
 
-        debug.field(&SqlServerLiteralWrapperDebugFormatter(r));
+        debug.field(&SqlServerLiteralDynWrapperDebugFormatter(r));
 
         debug.finish()
     }
@@ -476,3 +466,154 @@ impl<T: SqlServerLiteralForValueList> serde::Serialize for SqlServerLiteralForVa
         serializer.serialize_str(s.as_str())
     }
 }
+
+/// A wrapper type for string values.
+///
+/// This type allows you to easily convert a value into one that implements both [`Display`] and [`serde::Serialize`], enabling SQL Server literal formatting for character strings (CHAR/VARCHAR) rather than Unicode character strings (NCHAR/NVARCHAR).
+///
+/// # Examples
+///
+/// ```rust
+/// use mssql_value_serializer::SqlServerCharWrapper;
+///
+/// let needle = "Some text";
+///
+/// let mut sql = format!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name = {value}
+///     ",
+///     value = SqlServerCharWrapper::new(needle)
+/// );
+///
+/// assert_eq!(
+///     "
+///         SELECT
+///             *
+///         FROM
+///             [TABLE]
+///         WHERE
+///             name = 'Some text'
+///     ",
+///     sql
+/// );
+/// ```
+#[derive(Debug)]
+pub struct SqlServerCharWrapper<'a, T>(T, PhantomData<&'a ()>);
+
+impl<'a, T> SqlServerCharWrapper<'a, T> {
+    #[inline]
+    pub const fn new(value: T) -> Self {
+        Self(value, PhantomData)
+    }
+
+    /// Consumes the wrapper and returns the inner value.
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<'a, T> Display for SqlServerCharWrapper<'a, T>
+where
+    SqlServerCharWrapper<'a, T>: SqlServerLiteral,
+{
+    /// Formats the wrapped value as a SQL Server character string literal.
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.append_sql_literal_fmt(f).map_err(|_| fmt::Error)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'a, T> serde::Serialize for SqlServerCharWrapper<'a, T>
+where
+    SqlServerCharWrapper<'a, T>: SqlServerLiteral,
+{
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer, {
+        let mut s = String::new();
+
+        self.append_sql_literal(&mut s)
+            .map_err(|error| serde::ser::Error::custom(error.to_string()))?;
+
+        serializer.serialize_str(s.as_str())
+    }
+}
+
+impl From<char> for SqlServerCharWrapper<'_, char> {
+    #[inline]
+    fn from(value: char) -> Self {
+        Self::new(value)
+    }
+}
+
+impl Deref for SqlServerCharWrapper<'_, char> {
+    type Target = char;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl SqlServerLiteral for SqlServerCharWrapper<'_, char> {
+    #[inline]
+    fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError> {
+        crate::push_string_literal_char(&self.0, out).unwrap();
+
+        Ok(())
+    }
+
+    #[inline]
+    fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
+        crate::push_string_literal_char(&self.0, out).unwrap();
+
+        Ok(())
+    }
+}
+
+macro_rules! impl_char_wrapper {
+    ($($ty:ty),+ $(,)*) => {
+        $(
+            impl<'a> From<$ty> for SqlServerCharWrapper<'a, $ty> {
+                #[inline]
+                fn from(value: $ty) -> Self {
+                    Self::new(value)
+                }
+            }
+
+            impl<'a> Deref for SqlServerCharWrapper<'a, $ty> {
+                type Target = str;
+
+                #[inline]
+                fn deref(&self) -> &Self::Target {
+                    &self.0
+                }
+            }
+
+            impl<'a> SqlServerLiteral for SqlServerCharWrapper<'a, $ty> {
+                #[inline]
+                fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError> {
+                    $crate::push_string_literal(&self.0, out).unwrap();
+
+                    Ok(())
+                }
+
+                #[inline]
+                fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
+                    $crate::push_string_literal(&self.0, out).unwrap();
+
+                    Ok(())
+                }
+            }
+        )+
+    };
+}
+impl_char_wrapper!(&'a str, String, Cow<'a, str>);
