@@ -1,6 +1,6 @@
 mod common;
 
-use std::borrow::Cow;
+use std::{borrow::Cow, rc::Rc, sync::Arc};
 
 use common::test_literal;
 
@@ -34,6 +34,8 @@ fn test_strings() {
     test_literal("N'中'", '中');
     test_literal("N'中文字'", "中文字");
     test_literal("N'中文字'", String::from("中文字"));
+    test_literal("N'中文字'", Rc::new(String::from("中文字")));
+    test_literal("N'中文字'", Arc::new(String::from("中文字")));
     test_literal("N'中文字'", Cow::from("中文字"));
 }
 

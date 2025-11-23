@@ -3,6 +3,8 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
     ops::Deref,
+    rc::Rc,
+    sync::Arc,
 };
 
 use crate::{SqlLiteralError, SqlServerLiteral, SqlServerLiteralForValueList};
@@ -616,4 +618,4 @@ macro_rules! impl_char_wrapper {
         )+
     };
 }
-impl_char_wrapper!(&'a str, String, Cow<'a, str>);
+impl_char_wrapper!(&'a str, String, Rc<String>, Arc<String>, Cow<'a, str>);

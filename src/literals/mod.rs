@@ -11,7 +11,11 @@ mod time;
 #[cfg(feature = "uuid")]
 mod uuid;
 
-use std::fmt::{self, Formatter, Write};
+use std::{
+    fmt::{self, Formatter, Write},
+    rc::Rc,
+    sync::Arc,
+};
 
 use crate::{
     impl_dyn_wrapper, impl_dyn_wrapper_slice, SqlLiteralError, SqlServerLiteral,
@@ -199,9 +203,9 @@ macro_rules! impl_string {
         )*
     };
 }
-impl_string!(str, &str, String);
+impl_string!(str, &str, String, Rc<String>, Arc<String>);
 impl_dyn_wrapper_slice!(str);
-impl_dyn_wrapper!(String);
+impl_dyn_wrapper!(String, Rc<String>, Arc<String>);
 
 // ----- Blob -----
 
