@@ -1,6 +1,10 @@
 use std::fmt::{self, Formatter, Write};
 
-use chrono::prelude::*;
+use jiff::{
+    civil::{Date, DateTime, Time},
+    tz::Offset,
+    Timestamp, Zoned,
+};
 
 use super::{SqlLiteralError, SqlServerLiteral};
 use crate::impl_dyn_wrapper;
@@ -8,7 +12,7 @@ use crate::impl_dyn_wrapper;
 // ----- Date & Time -----
 
 #[inline]
-fn push_naive_date(naive_date: &NaiveDate, out: &mut impl Write) -> fmt::Result {
+fn push_naive_date(naive_date: &Date, out: &mut impl Write) -> fmt::Result {
     write!(
         out,
         "{year:04}-{month:02}-{day:02}",
@@ -18,7 +22,7 @@ fn push_naive_date(naive_date: &NaiveDate, out: &mut impl Write) -> fmt::Result 
     )
 }
 
-fn push_naive_time(naive_time: &NaiveTime, out: &mut impl Write) -> fmt::Result {
+fn push_naive_time(naive_time: &Time, out: &mut impl Write) -> fmt::Result {
     write!(
         out,
         "{hour:02}:{minute:02}:{second:02}",
@@ -27,7 +31,7 @@ fn push_naive_time(naive_time: &NaiveTime, out: &mut impl Write) -> fmt::Result 
         second = naive_time.second(),
     )?;
 
-    let mut nnnnnnn = (naive_time.nanosecond() / 100) * 100;
+    let mut nnnnnnn = (naive_time.subsec_nanosecond() / 100) * 100;
 
     if nnnnnnn > 0 {
         out.write_char('.')?;
@@ -50,7 +54,7 @@ fn push_naive_time(naive_time: &NaiveTime, out: &mut impl Write) -> fmt::Result 
 }
 
 #[inline]
-fn push_naive_date_time(naive_date_time: &NaiveDateTime, out: &mut impl Write) -> fmt::Result {
+fn push_naive_date_time(naive_date_time: &DateTime, out: &mut impl Write) -> fmt::Result {
     let date = naive_date_time.date();
     let time = naive_date_time.time();
 
@@ -59,8 +63,8 @@ fn push_naive_date_time(naive_date_time: &NaiveDateTime, out: &mut impl Write) -
     push_naive_time(&time, out)
 }
 
-fn push_time_zone(fixed_offset: &FixedOffset, out: &mut impl Write) -> fmt::Result {
-    let seconds = fixed_offset.local_minus_utc();
+fn push_time_zone(fixed_offset: &Offset, out: &mut impl Write) -> fmt::Result {
+    let seconds = fixed_offset.seconds();
 
     let (sign, abs_seconds) = if seconds >= 0 { ('+', seconds) } else { ('-', -seconds) };
 
@@ -77,55 +81,21 @@ fn push_time_zone(fixed_offset: &FixedOffset, out: &mut impl Write) -> fmt::Resu
 }
 
 #[inline]
-fn push_date_time_fixed_offset(
-    date_time: &DateTime<FixedOffset>,
-    out: &mut impl Write,
-) -> fmt::Result {
-    let ndt = date_time.naive_local();
-    let time_zone = date_time.timezone();
+fn push_timestamp(timestamp: &Timestamp, out: &mut impl Write) -> fmt::Result {
+    let naive_date_time = Offset::UTC.to_datetime(*timestamp);
 
-    push_naive_date_time(&ndt, out)?;
-    out.write_char(' ')?;
-    push_time_zone(&time_zone, out)
-}
-
-#[inline]
-fn push_date_time_utc(date_time: &DateTime<Utc>, out: &mut impl Write) -> fmt::Result {
-    let ndt = date_time.naive_utc();
-
-    push_naive_date_time(&ndt, out)?;
+    push_naive_date_time(&naive_date_time, out)?;
     out.write_str(" +00:00")
 }
 
-#[cfg(feature = "stable-local")]
-fn push_date_time_local(date_time: &DateTime<Local>, out: &mut impl Write) -> fmt::Result {
-    use std::sync::OnceLock;
-
-    static TIME_ZONE_STRING: OnceLock<String> = OnceLock::new();
-
-    let time_zone_string = TIME_ZONE_STRING.get_or_init(|| {
-        let fixed_offset = date_time.offset().fix();
-        let mut time_zone_string = String::with_capacity(7);
-
-        time_zone_string.push(' ');
-        push_time_zone(&fixed_offset, &mut time_zone_string).unwrap(); // should not panic because the output is a string
-
-        time_zone_string
-    });
-
-    let ndt = date_time.naive_local();
-
-    push_naive_date_time(&ndt, out)?;
-
-    out.write_str(time_zone_string)
-}
-
-#[cfg(not(feature = "stable-local"))]
 #[inline]
-fn push_date_time_local(date_time: &DateTime<Local>, out: &mut impl Write) -> fmt::Result {
-    let date_time = date_time.fixed_offset();
+fn push_zoned(date_time: &Zoned, out: &mut impl Write) -> fmt::Result {
+    let naive_date_time = date_time.datetime();
+    let time_zone = date_time.offset();
 
-    push_date_time_fixed_offset(&date_time, out)
+    push_naive_date_time(&naive_date_time, out)?;
+    out.write_char(' ')?;
+    push_time_zone(&time_zone, out)
 }
 
 macro_rules! impl_date_time_as_string {
@@ -156,9 +126,8 @@ macro_rules! impl_date_time_as_string {
         impl_dyn_wrapper!($ty);
     };
 }
-impl_date_time_as_string!(NaiveDate, push_naive_date);
-impl_date_time_as_string!(NaiveTime, push_naive_time);
-impl_date_time_as_string!(NaiveDateTime, push_naive_date_time);
-impl_date_time_as_string!(DateTime<FixedOffset>, push_date_time_fixed_offset);
-impl_date_time_as_string!(DateTime<Utc>, push_date_time_utc);
-impl_date_time_as_string!(DateTime<Local>, push_date_time_local);
+impl_date_time_as_string!(Date, push_naive_date);
+impl_date_time_as_string!(Time, push_naive_time);
+impl_date_time_as_string!(DateTime, push_naive_date_time);
+impl_date_time_as_string!(Timestamp, push_timestamp);
+impl_date_time_as_string!(Zoned, push_zoned);

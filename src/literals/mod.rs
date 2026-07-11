@@ -2,6 +2,8 @@
 mod bigdecimal;
 #[cfg(feature = "chrono")]
 mod chrono;
+#[cfg(feature = "jiff")]
+mod jiff;
 #[cfg(feature = "num-bigint")]
 mod num_bigint;
 #[cfg(feature = "rust_decimal")]
@@ -210,10 +212,6 @@ impl_dyn_wrapper!(String, Rc<String>, Arc<String>);
 // ----- Blob -----
 
 fn push_hex_bytes(bytes: &[u8], out: &mut impl Write) -> fmt::Result {
-    if bytes.is_empty() {
-        return Err(fmt::Error);
-    }
-
     out.write_str("0x")?;
 
     for b in bytes {
@@ -224,11 +222,11 @@ fn push_hex_bytes(bytes: &[u8], out: &mut impl Write) -> fmt::Result {
 }
 
 fn push_hex_bytes_to_string(bytes: &[u8], out: &mut String) -> fmt::Result {
-    if bytes.is_empty() {
-        return Err(fmt::Error);
-    }
-
     out.push_str("0x");
+
+    if bytes.is_empty() {
+        return Ok(());
+    }
 
     let len = out.len();
     let hex_len = bytes.len() * 2;

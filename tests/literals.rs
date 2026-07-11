@@ -41,6 +41,7 @@ fn test_strings() {
 
 #[test]
 fn test_blob() {
+    test_literal("0x", [].as_slice());
     test_literal("0x0102030405", [1u8, 2, 3, 4, 5].as_slice());
     test_literal("0x0102030405", vec![1u8, 2, 3, 4, 5]);
     test_literal("0x0102030405", Cow::from([1u8, 2, 3, 4, 5].as_slice()));

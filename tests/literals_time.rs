@@ -25,6 +25,10 @@ fn test_time() {
         OffsetDateTime::parse("2025-01-02T03:04:05.06789-01:02", &Rfc3339).unwrap(),
     );
     test_literal(
+        "'2025-01-02 03:04:05.06789 -00:30'",
+        OffsetDateTime::parse("2025-01-02T03:04:05.06789-00:30", &Rfc3339).unwrap(),
+    );
+    test_literal(
         "'2025-01-02 03:04:05.06789 +00:00'",
         UtcDateTime::parse("2025-01-02T03:04:05.06789Z", &Rfc3339).unwrap(),
     );

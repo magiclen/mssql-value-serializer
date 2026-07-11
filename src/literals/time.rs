@@ -60,21 +60,16 @@ fn push_naive_date_time(naive_date_time: &PrimitiveDateTime, out: &mut impl Writ
 }
 
 fn push_time_zone(fixed_offset: &UtcOffset, out: &mut impl Write) -> fmt::Result {
-    let mut hours = fixed_offset.whole_hours();
-    let mut minutes = fixed_offset.minutes_past_hour();
+    let seconds = fixed_offset.whole_seconds();
 
-    let sign = if hours >= 0 {
-        '+'
-    } else {
-        hours = -hours;
-        minutes = -minutes;
+    let (sign, abs_seconds) = if seconds >= 0 { ('+', seconds) } else { ('-', -seconds) };
 
-        '-'
-    };
+    let hours = abs_seconds / 3600;
+    let minutes = (abs_seconds % 3600) / 60;
 
     // seconds should be zero for SQL Server (or ignore it in release)
     debug_assert!(
-        fixed_offset.seconds_past_minute() == 0,
+        abs_seconds % 60 == 0,
         "the seconds part of {fixed_offset:?} should be zero for SQL Server"
     );
 

@@ -62,7 +62,7 @@ assert_eq!("
 ## Optional Features
 
 * `serde`: Implements `serde::Serialize` for wrapper types, enabling SQL Server literal serialization behavior.
-* `chrono` or `time`: Adds support for SQL Server date and time types.
+* `chrono`, `jiff`, or `time`: Adds support for SQL Server date and time types.
     * `chrono` and `stable-local`: If your local timezone does not observe daylight saving time (DST), enable this feature to use a fixed offset for `DateTime<Local>`, improving formatting performance.
 * `rust_decimal` or `bigdecimal`: Adds support for SQL Server decimal/numeric types.
 * `num-bigint`: Adds support for SQL Server decimal/numeric types (only integers).
