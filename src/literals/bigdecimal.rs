@@ -3,7 +3,7 @@ use std::fmt::{Formatter, Write};
 use bigdecimal::{BigDecimal, BigDecimalRef};
 
 use super::{SqlLiteralError, SqlServerLiteral};
-use crate::{impl_dyn_wrapper, SqlServerLiteralDynWrapper};
+use crate::{SqlServerLiteralDynWrapper, impl_dyn_wrapper};
 
 impl SqlServerLiteral for BigDecimal {
     #[inline]

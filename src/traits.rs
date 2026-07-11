@@ -1,12 +1,11 @@
 use std::{borrow::Cow, collections::HashSet, fmt::Formatter};
 
 use crate::{
-    append_sql_literal_for_value_list_from_box_iter,
+    SqlLiteralError, append_sql_literal_for_value_list_from_box_iter,
     append_sql_literal_for_value_list_from_box_iter_fmt,
     append_sql_literal_for_value_list_from_dyn_iter,
     append_sql_literal_for_value_list_from_dyn_iter_fmt,
     append_sql_literal_for_value_list_from_iter, append_sql_literal_for_value_list_from_iter_fmt,
-    SqlLiteralError,
 };
 
 /// Represents a type that can be converted into a valid SQL Server literal.

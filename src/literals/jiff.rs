@@ -1,9 +1,9 @@
 use std::fmt::{self, Formatter, Write};
 
 use jiff::{
+    Timestamp, Zoned,
     civil::{Date, DateTime, Time},
     tz::Offset,
-    Timestamp, Zoned,
 };
 
 use super::{SqlLiteralError, SqlServerLiteral};

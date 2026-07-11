@@ -20,8 +20,8 @@ use std::{
 };
 
 use crate::{
-    impl_dyn_wrapper, impl_dyn_wrapper_slice, SqlLiteralError, SqlServerLiteral,
-    SqlServerLiteralDynWrapper,
+    SqlLiteralError, SqlServerLiteral, SqlServerLiteralDynWrapper, impl_dyn_wrapper,
+    impl_dyn_wrapper_slice,
 };
 
 // ----- Booleans -----

@@ -4,8 +4,8 @@ mod common;
 
 use common::test_literal;
 use time::{
-    format_description::well_known::Rfc3339, Date, Month, OffsetDateTime, PrimitiveDateTime, Time,
-    UtcDateTime,
+    Date, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcDateTime,
+    format_description::well_known::Rfc3339,
 };
 
 #[test]

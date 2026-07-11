@@ -4,9 +4,9 @@ mod common;
 
 use common::test_literal;
 use jiff::{
+    Timestamp,
     civil::{Date, DateTime, Time},
     tz::{Offset, TimeZone},
-    Timestamp,
 };
 
 #[test]

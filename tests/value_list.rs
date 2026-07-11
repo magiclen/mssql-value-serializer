@@ -3,7 +3,7 @@ mod common;
 use std::collections::HashSet;
 
 use common::test_literals;
-use mssql_value_serializer::{append_sql_literal_for_value_list, SqlServerLiteral};
+use mssql_value_serializer::{SqlServerLiteral, append_sql_literal_for_value_list};
 
 #[test]
 fn test_append_sql_literal_for_value_list_empty() {
