@@ -69,8 +69,7 @@ assert_eq!("
 * `uuid`: Adds support for SQL Server UNIQUEIDENTIFIER type.
 */
 
-#![allow(unexpected_cfgs)]
-#![cfg_attr(docsrs_1_92, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod errors;
 mod functions;

@@ -44,4 +44,4 @@ all = ["serde", "chrono", "time", "rust_decimal", "bigdecimal", "uuid"]
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs_1_92"]
+rustdoc-args = ["--cfg", "docsrs"]
