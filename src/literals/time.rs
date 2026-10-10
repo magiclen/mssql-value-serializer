@@ -1,6 +1,6 @@
 use std::fmt::{self, Formatter, Write};
 
-use time::{Date, OffsetDateTime, PrimitiveDateTime, Time, UtcDateTime, UtcOffset};
+use time::{Date, OffsetDateTime, PlainDateTime, Time, UtcDateTime, UtcOffset};
 
 use super::{SqlLiteralError, SqlServerLiteral};
 use crate::impl_dyn_wrapper;
@@ -50,7 +50,7 @@ fn push_naive_time(naive_time: &Time, out: &mut impl Write) -> fmt::Result {
 }
 
 #[inline]
-fn push_naive_date_time(naive_date_time: &PrimitiveDateTime, out: &mut impl Write) -> fmt::Result {
+fn push_naive_date_time(naive_date_time: &PlainDateTime, out: &mut impl Write) -> fmt::Result {
     let date = naive_date_time.date();
     let time = naive_date_time.time();
 
@@ -132,6 +132,6 @@ macro_rules! impl_date_time_as_string {
 }
 impl_date_time_as_string!(Date, push_naive_date);
 impl_date_time_as_string!(Time, push_naive_time);
-impl_date_time_as_string!(PrimitiveDateTime, push_naive_date_time);
+impl_date_time_as_string!(PlainDateTime, push_naive_date_time);
 impl_date_time_as_string!(OffsetDateTime, push_date_time_fixed_offset);
 impl_date_time_as_string!(UtcDateTime, push_date_time_utc);

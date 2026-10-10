@@ -2,7 +2,7 @@
 name = "mssql-value-serializer"
 version = "0.1.4"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 repository = "https://github.com/magiclen/mssql-value-serializer"
 homepage = "https://magiclen.org/mssql-value-serializer"
 keywords = ["mssql", "sql-server", "db", "database"]
@@ -12,21 +12,21 @@ license = "MIT"
 include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
-const-hex = "1"
+const-hex = "1.19.3"
 
-serde = { version = "1", optional = true }
+serde = { version = "1.0.229", optional = true }
 
-chrono = { version = "0.4", optional = true }
-jiff = { version = "0.2", optional = true, default-features = false, features = ["std"] }
-time = { version = "0.3", optional = true }
+chrono = { version = "0.4.45", optional = true }
+jiff = { version = "0.2.38", optional = true, default-features = false, features = ["std"] }
+time = { version = "0.3.55", optional = true }
 
-rust_decimal = { version = "1", optional = true }
-bigdecimal = { version = "0.4", optional = true }
+rust_decimal = { version = "1.43.0", optional = true }
+bigdecimal = { version = "0.4.11", optional = true }
 num-bigint = { version = "0.4", optional = true }
-uuid = { version = "1", optional = true }
+uuid = { version = "1.28.0", optional = true }
 
 [dev-dependencies]
-time = { version = "0.3", features = ["parsing"] }
+time = { version = "0.3.55", features = ["parsing"] }
 
 [features]
 serde = ["dep:serde"]

@@ -4,7 +4,7 @@ mod common;
 
 use common::test_literal;
 use time::{
-    Date, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcDateTime,
+    Date, Month, OffsetDateTime, PlainDateTime, Time, UtcDateTime,
     format_description::well_known::Rfc3339,
 };
 
@@ -15,7 +15,7 @@ fn test_time() {
     test_literal("'03:04:05.06789'", Time::from_hms_nano(3, 4, 5, 67890000).unwrap());
     test_literal(
         "'2025-01-02 03:04:05.06789'",
-        PrimitiveDateTime::new(
+        PlainDateTime::new(
             Date::from_calendar_date(2025, Month::January, 2).unwrap(),
             Time::from_hms_nano(3, 4, 5, 67890000).unwrap(),
         ),
