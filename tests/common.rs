@@ -10,7 +10,7 @@ use mssql_value_serializer::{
     SqlServerLiteralForValueListWrapper, SqlServerLiteralWrapper,
 };
 
-pub fn test_literal<T: SqlServerLiteral>(expect: &'static str, literal: T) {
+pub fn test_literal<T: SqlServerLiteral>(expect: &str, literal: T) {
     {
         let mut s = String::new();
 
@@ -50,25 +50,10 @@ pub fn test_literal_error<T: SqlServerLiteral>(literal: T, check: impl Fn(&SqlLi
 
 pub fn test_literals<T: SqlServerLiteralForValueList>(expect: &[&'static str], literals: T) {
     let validate = |s: &str| match expect.len() {
-        0 => (),
+        0 => assert_eq!("", s),
         1 => assert_eq!(expect[0], s),
         _ => {
-            let mut i = 0usize;
-            let mut pass = false;
-
-            while i < expect.len() {
-                if s.eq(expect[i]) {
-                    pass = true;
-
-                    break;
-                }
-
-                i += 1;
-            }
-
-            if !pass {
-                assert_eq!(expect[i], s)
-            }
+            assert!(expect.contains(&s), "expected one of {expect:?}, got {s:?}");
         },
     };
 

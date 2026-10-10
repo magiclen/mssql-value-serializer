@@ -7,6 +7,9 @@ use mssql_value_serializer::SqlServerCharWrapper;
 
 #[test]
 fn test_char_wrapper() {
+    test_literal("''", SqlServerCharWrapper::from(""));
+    test_literal("''''", SqlServerCharWrapper::from('\''));
+    test_literal("'O''Brien'", SqlServerCharWrapper::from("O'Brien"));
     test_literal("'a'", SqlServerCharWrapper::from('a'));
     test_literal("'abc'", SqlServerCharWrapper::from("abc"));
     test_literal("'abc'", SqlServerCharWrapper::from(String::from("abc")));

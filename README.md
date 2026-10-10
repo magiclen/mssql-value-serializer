@@ -70,6 +70,22 @@ assert_eq!("
 * `num-bigint`: Adds support for SQL Server decimal/numeric types (only integers).
 * `uuid`: Adds support for SQL Server UNIQUEIDENTIFIER type.
 
+## Literal Behavior
+
+* Formatting an invalid value with a wrapper panics; use the append methods or Serde to handle value errors.
+* Writer errors are returned as `SqlLiteralError::Write` and do not cause a panic.
+* Normal floating-point values use plain decimal text when it fits SQL Server's 38-digit decimal limit.
+* Larger or smaller floating-point values use quoted plain text with `CAST` to `real` for `f32` or `float(53)` for `f64`.
+* These casts still produce floating-point values, not exact decimal values.
+* NaN, infinity, and subnormal floating-point values are rejected.
+* BigDecimal values use exact plain decimal text and keep their original scale and trailing zeros.
+* BigDecimal, BigInt, BigUint, i128, and u128 values outside the 38-digit decimal range are rejected before writing.
+* BigDecimal scale is checked even for zero, so an unsupported scale is rejected instead of being normalized.
+* Time zone offsets must be whole minutes from -14:00 to +14:00, and leap seconds are rejected.
+* Fractional seconds are truncated to 100 ns; date values must be valid for the target SQL Server type.
+* A value list keeps earlier output if a later value fails.
+* Negative zero keeps its literal text; its sign bit is not guaranteed after SQL storage.
+
 ## Crates.io
 
 https://crates.io/crates/mssql-value-serializer
