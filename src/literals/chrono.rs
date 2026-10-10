@@ -2,10 +2,15 @@ use std::fmt::{self, Formatter, Write};
 
 use chrono::prelude::*;
 
-use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset};
+use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset, validate_year};
 use crate::impl_dyn_wrapper;
 
 // ----- Date & Time -----
+
+#[inline]
+fn validate_naive_date(date: &NaiveDate) -> Result<(), SqlLiteralError> {
+    validate_year(date.year())
+}
 
 #[inline]
 fn validate_naive_time(time: &NaiveTime) -> Result<(), SqlLiteralError> {
@@ -18,13 +23,18 @@ fn validate_naive_time(time: &NaiveTime) -> Result<(), SqlLiteralError> {
 
 #[inline]
 fn validate_naive_date_time(date_time: &NaiveDateTime) -> Result<(), SqlLiteralError> {
+    validate_naive_date(&date_time.date())?;
     validate_naive_time(&date_time.time())
 }
 
 #[inline]
 fn validate_date_time<Tz: TimeZone>(date_time: &DateTime<Tz>) -> Result<(), SqlLiteralError> {
     validate_time_zone_offset(date_time.offset().fix().local_minus_utc())?;
-    validate_naive_time(&date_time.naive_utc().time())
+    let utc = date_time.naive_utc();
+
+    validate_naive_time(&utc.time())?;
+    validate_naive_date(&utc.date())?;
+    validate_naive_date(&date_time.naive_local().date())
 }
 
 #[inline]
@@ -181,7 +191,7 @@ macro_rules! impl_date_time_as_string {
         impl_dyn_wrapper!($ty);
     };
 }
-impl_date_time_as_string!(NaiveDate, push_naive_date);
+impl_date_time_as_string!(NaiveDate, push_naive_date, validate_naive_date);
 impl_date_time_as_string!(NaiveTime, push_naive_time, validate_naive_time);
 impl_date_time_as_string!(NaiveDateTime, push_naive_date_time, validate_naive_date_time);
 impl_date_time_as_string!(DateTime<FixedOffset>, push_date_time_fixed_offset, validate_date_time);

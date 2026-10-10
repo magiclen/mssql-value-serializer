@@ -5,6 +5,7 @@ use std::{
 
 /// Errors that occur when serializing a SQL Server literal.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum SqlLiteralError {
     /// The floating-point value is not finite (`NaN` or `infinity`).
     FloatNotFinite,
@@ -18,6 +19,8 @@ pub enum SqlLiteralError {
     InvalidTimeZoneOffset { seconds: i32 },
     /// SQL Server does not support leap seconds.
     LeapSecondUnsupported,
+    /// The year is outside 1 to 9999.
+    DateOutOfRange { year: i32 },
 }
 
 impl Display for SqlLiteralError {
@@ -36,6 +39,9 @@ impl Display for SqlLiteralError {
                 seconds,
             } => write!(f, "time zone offset of {seconds} seconds is not supported by SQL Server"),
             Self::LeapSecondUnsupported => f.write_str("SQL Server does not support leap seconds"),
+            Self::DateOutOfRange {
+                year,
+            } => write!(f, "year {year} is outside the SQL Server date range of 1 to 9999"),
         }
     }
 }
@@ -63,6 +69,19 @@ pub(crate) fn into_fmt_result(result: Result<(), SqlLiteralError>) -> fmt::Resul
         Ok(()) => Ok(()),
         Err(SqlLiteralError::Write(error)) => Err(error),
         Err(error) => panic!("cannot format SQL Server literal: {error}"),
+    }
+}
+
+#[inline]
+pub(crate) fn into_debug_fmt_result(
+    result: Result<(), SqlLiteralError>,
+    f: &mut Formatter<'_>,
+) -> fmt::Result {
+    match result {
+        Ok(()) => Ok(()),
+        Err(SqlLiteralError::Write(error)) => Err(error),
+        // Debug output is often used in logs and panic messages, so it should not panic.
+        Err(error) => write!(f, "<invalid: {error}>"),
     }
 }
 

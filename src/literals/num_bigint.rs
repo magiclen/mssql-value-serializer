@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Formatter, Write},
-    sync::OnceLock,
-};
+use std::fmt::{Formatter, Write};
 
 use num_bigint::{BigInt, BigUint};
 
@@ -10,13 +7,10 @@ use crate::impl_dyn_wrapper;
 
 #[inline]
 fn validate_integer(value: &BigUint) -> Result<(), SqlLiteralError> {
-    static MAX: OnceLock<BigUint> = OnceLock::new();
-
-    if value > MAX.get_or_init(|| BigUint::from(super::MAX_DECIMAL_INTEGER)) {
-        return Err(SqlLiteralError::NumericOutOfRange);
+    match u128::try_from(value) {
+        Ok(value) if value <= super::MAX_DECIMAL_INTEGER => Ok(()),
+        _ => Err(SqlLiteralError::NumericOutOfRange),
     }
-
-    Ok(())
 }
 
 impl SqlServerLiteral for BigInt {

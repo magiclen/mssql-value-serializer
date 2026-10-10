@@ -14,7 +14,7 @@ mod time;
 mod uuid;
 
 use std::{
-    fmt::{self, Display, Formatter, Write},
+    fmt::{self, Display, Formatter, UpperExp, Write},
     rc::Rc,
     sync::Arc,
 };
@@ -30,6 +30,18 @@ fn validate_time_zone_offset(seconds: i32) -> Result<(), SqlLiteralError> {
     if seconds % 60 != 0 || !(-50_400..=50_400).contains(&seconds) {
         return Err(SqlLiteralError::InvalidTimeZoneOffset {
             seconds,
+        });
+    }
+
+    Ok(())
+}
+
+#[cfg(any(feature = "chrono", feature = "jiff", feature = "time"))]
+#[inline]
+fn validate_year(year: i32) -> Result<(), SqlLiteralError> {
+    if !(1..=9999).contains(&year) {
+        return Err(SqlLiteralError::DateOutOfRange {
+            year,
         });
     }
 
@@ -61,7 +73,7 @@ impl_dyn_wrapper!(bool);
 const MAX_DECIMAL_INTEGER: u128 = 10u128.pow(38) - 1;
 
 struct FloatBuffer {
-    bytes: [u8; 512],
+    bytes: [u8; 32],
     len:   usize,
 }
 
@@ -74,25 +86,56 @@ impl Write for FloatBuffer {
     }
 }
 
-fn push_float_literal(value: impl Display, sql_type: &str, out: &mut impl Write) -> fmt::Result {
-    let mut buffer = FloatBuffer {
-        bytes: [0; 512], len: 0
-    };
-    // A plain f32 or f64 value needs at most 327 bytes, including the sign.
-    write!(buffer, "{value}").expect("float buffer is too small");
-    let s = std::str::from_utf8(&buffer.bytes[..buffer.len]).unwrap();
-    let unsigned = s.trim_start_matches('-');
-    let (integer, fraction) = unsigned.split_once('.').unwrap_or((unsigned, ""));
-    let precision = (integer.trim_start_matches('0').len() + fraction.len()).max(1);
+fn push_float_literal<T: Display + UpperExp>(
+    value: T,
+    abs: f64,
+    cast_type: Option<&str>,
+    out: &mut impl Write,
+) -> fmt::Result {
+    const ZEROS: &str = "0000000000000000000000000000000000000";
 
-    if precision <= 38 {
-        out.write_str(s)
-    } else {
-        out.write_str("CAST('")?;
+    // Rust prints at most 17 significant digits, so plain text in this range never needs more than 38 digits.
+    if abs == 0.0 || (1e-21..1e21).contains(&abs) {
+        return write!(out, "{value}");
+    }
+
+    let mut buffer = FloatBuffer {
+        bytes: [0; 32], len: 0
+    };
+    // Scientific notation of an f32 or f64 value needs at most 24 bytes, including the sign.
+    write!(buffer, "{value:E}").expect("float buffer is too small");
+    let s = std::str::from_utf8(&buffer.bytes[..buffer.len]).unwrap();
+    let (sign, unsigned) = s.split_at(usize::from(s.starts_with('-')));
+    let (mantissa, exponent) = unsigned.split_once('E').unwrap();
+    let (first, rest) = mantissa.split_at(1);
+    let rest = rest.trim_start_matches('.');
+    let exponent: i32 = exponent.parse().unwrap();
+    let digits = 1 + rest.len() as i32;
+
+    // Outside the range above, the exponent is at least 21 or negative, so plain text has either no fraction or no integer part.
+    let zeros = if exponent > 0 { exponent + 1 - digits } else { -exponent - 1 };
+
+    if digits + zeros <= 38 {
+        out.write_str(sign)?;
+
+        if exponent > 0 {
+            out.write_str(first)?;
+            out.write_str(rest)?;
+            out.write_str(&ZEROS[..zeros as usize])
+        } else {
+            out.write_str("0.")?;
+            out.write_str(&ZEROS[..zeros as usize])?;
+            out.write_str(first)?;
+            out.write_str(rest)
+        }
+    } else if let Some(cast_type) = cast_type {
+        out.write_str("CAST(")?;
         out.write_str(s)?;
-        out.write_str("' AS ")?;
-        out.write_str(sql_type)?;
+        out.write_str(" AS ")?;
+        out.write_str(cast_type)?;
         out.write_char(')')
+    } else {
+        out.write_str(s)
     }
 }
 
@@ -130,7 +173,7 @@ macro_rules! impl_int {
 impl_int!(i8, i16, i32, i64, i128 => i128::unsigned_abs, isize, u8, u16, u32, u64, u128 => |value| value, usize);
 
 macro_rules! impl_float {
-    ($($t:ty => $sql_type:literal),* $(,)?) => {
+    ($($t:ty => $cast_type:expr),* $(,)?) => {
         $(
             impl SqlServerLiteral for $t {
                 #[inline]
@@ -143,7 +186,7 @@ macro_rules! impl_float {
                         return Err(SqlLiteralError::FloatSubnormal);
                     }
 
-                    push_float_literal(*self, $sql_type, out).unwrap();
+                    push_float_literal(*self, f64::from(self.abs()), $cast_type, out).unwrap();
 
                     Ok(())
                 }
@@ -158,7 +201,7 @@ macro_rules! impl_float {
                         return Err(SqlLiteralError::FloatSubnormal);
                     }
 
-                    push_float_literal(*self, $sql_type, out)?;
+                    push_float_literal(*self, f64::from(self.abs()), $cast_type, out)?;
 
                     Ok(())
                 }
@@ -168,7 +211,7 @@ macro_rules! impl_float {
         )*
     }
 }
-impl_float!(f32 => "real", f64 => "float(53)");
+impl_float!(f32 => Some("real"), f64 => None);
 
 // ----- Strings -----
 
@@ -218,25 +261,46 @@ impl SqlServerLiteral for char {
 
 impl_dyn_wrapper!(char);
 
-pub(crate) fn push_string_literal(s: &str, out: &mut impl Write) -> fmt::Result {
+pub(crate) fn push_string_literal<const MAX_CHAR_LEN: usize>(
+    s: &str,
+    out: &mut impl Write,
+) -> fmt::Result {
     out.write_char('\'')?;
-    push_escaped_string(s, out)?;
+    push_escaped_string::<MAX_CHAR_LEN>(s, out)?;
     out.write_char('\'')
 }
 
-fn push_nstring_literal(s: &str, out: &mut impl Write) -> fmt::Result {
+fn push_nstring_literal<const MAX_CHAR_LEN: usize>(s: &str, out: &mut impl Write) -> fmt::Result {
     out.write_str("N'")?;
-    push_escaped_string(s, out)?;
+    push_escaped_string::<MAX_CHAR_LEN>(s, out)?;
     out.write_char('\'')
 }
 
 #[inline]
-fn push_escaped_string(s: &str, out: &mut impl Write) -> fmt::Result {
+fn push_escaped_string<const MAX_CHAR_LEN: usize>(s: &str, out: &mut impl Write) -> fmt::Result {
     let Some(first_quote) = s.find('\'') else {
         return out.write_str(s);
     };
 
-    if first_quote < 16 && s[first_quote + 1..].find('\'').is_some_and(|distance| distance < 16) {
+    let quote_gap = if s.len() <= 64 { 16 } else { 10 };
+
+    // String can use char writes for long dense strings because its write calls are cheaper.
+    if s.len() <= MAX_CHAR_LEN
+        && first_quote < quote_gap
+        && s.as_bytes()[first_quote + 1..].iter().take(quote_gap).position(|&byte| byte == b'\'').is_some_and(|distance| {
+            // Long inputs need short char gaps even when their UTF-8 byte gaps are larger.
+            // An ASCII quote is always at a UTF-8 boundary.
+            s.len() <= 64 || s[first_quote + 1..first_quote + 1 + distance].chars().count() < 8
+        })
+        // Sample the middle and end to avoid choosing char writes from the prefix alone.
+        && (s.len() <= 64
+            || (s.as_bytes()[s.len() / 2..s.len() / 2 + quote_gap].contains(&b'\'')
+                && s.as_bytes()[s.len() - quote_gap..].contains(&b'\'')))
+    {
+        if s.len() > 64 {
+            return push_long_escaped_chars(s, out);
+        }
+
         for ch in s.chars() {
             if ch == '\'' {
                 out.write_char('\'')?;
@@ -259,20 +323,34 @@ fn push_escaped_string(s: &str, out: &mut impl Write) -> fmt::Result {
     out.write_str(&s[start..])
 }
 
+// Keep the long char loop separate from string search code.
+#[inline(never)]
+fn push_long_escaped_chars(s: &str, out: &mut impl Write) -> fmt::Result {
+    for ch in s.chars() {
+        if ch == '\'' {
+            out.write_char('\'')?;
+        }
+
+        out.write_char(ch)?;
+    }
+
+    Ok(())
+}
+
 macro_rules! impl_string {
     ($($t:ty),* $(,)*) => {
         $(
             impl SqlServerLiteral for $t {
                 #[inline]
                 fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError> {
-                    push_nstring_literal(self, out).unwrap();
+                    push_nstring_literal::<{ usize::MAX }>(self, out).unwrap();
 
                     Ok(())
                 }
 
                 #[inline]
                 fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-                    push_nstring_literal(self, out)?;
+                    push_nstring_literal::<64>(self, out)?;
 
                     Ok(())
                 }
@@ -289,8 +367,18 @@ impl_dyn_wrapper!(String, Rc<String>, Arc<String>);
 fn push_hex_bytes(bytes: &[u8], out: &mut impl Write) -> fmt::Result {
     out.write_str("0x")?;
 
-    for b in bytes {
-        write!(out, "{:02X}", b)?;
+    push_hex_chunks::<512>(bytes, out)
+}
+
+#[inline]
+fn push_hex_chunks<const N: usize>(bytes: &[u8], out: &mut impl Write) -> fmt::Result {
+    let mut buffer = [0u8; N];
+
+    for chunk in bytes.chunks(N / 2) {
+        let hex = const_hex::encode_to_str_upper(chunk, &mut buffer[..chunk.len() * 2])
+            .expect("hex buffer length is correct");
+
+        out.write_str(hex)?;
     }
 
     Ok(())
@@ -308,7 +396,7 @@ fn push_hex_bytes_to_string(bytes: &[u8], out: &mut String) -> fmt::Result {
     }
 
     if bytes.len() >= 65_536 {
-        push_large_hex_bytes_to_string(bytes, hex_len, out);
+        push_large_hex_bytes_to_string(bytes, out);
         return Ok(());
     }
 
@@ -327,28 +415,8 @@ fn push_hex_bytes_to_string(bytes: &[u8], out: &mut String) -> fmt::Result {
 
 // Keep the large stack buffer off the small-input path.
 #[inline(never)]
-fn push_large_hex_bytes_to_string(bytes: &[u8], hex_len: usize, out: &mut String) {
-    let len = out.len();
-    let mut buffer = [0u8; 16_384];
-
-    // SAFETY: The encoder writes ASCII into initialized storage, and the copies initialize the full tail before set_len.
-    unsafe {
-        let v = out.as_mut_vec();
-        let spare = &mut v.spare_capacity_mut()[..hex_len];
-
-        for (input, destination) in
-            bytes.chunks(buffer.len() / 2).zip(spare.chunks_mut(buffer.len()))
-        {
-            let encoded = &mut buffer[..destination.len()];
-            const_hex::encode_to_slice_upper(input, encoded).expect("hex buffer length is correct");
-            destination
-                .as_mut_ptr()
-                .cast::<u8>()
-                .copy_from_nonoverlapping(encoded.as_ptr(), encoded.len());
-        }
-
-        v.set_len(len + hex_len);
-    }
+fn push_large_hex_bytes_to_string(bytes: &[u8], out: &mut String) {
+    push_hex_chunks::<16_384>(bytes, out).unwrap(); // should not panic because the output is a string
 }
 
 macro_rules! impl_u8_array {

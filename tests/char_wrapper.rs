@@ -16,4 +16,8 @@ fn test_char_wrapper() {
     test_literal("'abc'", SqlServerCharWrapper::from(Rc::new(String::from("abc"))));
     test_literal("'abc'", SqlServerCharWrapper::from(Arc::new(String::from("abc"))));
     test_literal("'abc'", SqlServerCharWrapper::from(Cow::from("abc")));
+    test_literal(
+        &format!("'{}'", "O''Brien中".repeat(512)),
+        SqlServerCharWrapper::from("O'Brien中".repeat(512)),
+    );
 }

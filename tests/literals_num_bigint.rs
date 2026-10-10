@@ -9,7 +9,7 @@ use mssql_value_serializer::SqlLiteralError;
 use num_bigint::{BigInt, BigUint};
 
 #[test]
-fn test_bigdecimal() {
+fn test_num_bigint() {
     test_literal("1234567890", BigInt::from_str("1234567890").unwrap());
     test_literal("1234567890", BigUint::from_str("1234567890").unwrap());
 }

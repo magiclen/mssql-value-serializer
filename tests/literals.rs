@@ -43,6 +43,16 @@ fn test_strings() {
     test_literal("N'中文字'", Rc::new(String::from("中文字")));
     test_literal("N'中文字'", Arc::new(String::from("中文字")));
     test_literal("N'中文字'", Cow::from("中文字"));
+
+    for repeats in [8, 9, 512] {
+        test_literal(&format!("N'{}'", "O''Brien''".repeat(repeats)), "O'Brien'".repeat(repeats));
+    }
+    test_literal(&format!("N'{}'", "O''Brien中".repeat(512)), "O'Brien中".repeat(512));
+    test_literal(&format!("N'{}'", "''".repeat(512)), "'".repeat(512));
+    test_literal(
+        &format!("N'O''Brien''{}'", "中文字".repeat(512)),
+        format!("O'Brien'{}", "中文字".repeat(512)),
+    );
 }
 
 #[test]
@@ -53,6 +63,8 @@ fn test_float_ranges() {
     test_literal("-0", -0.0f64);
     test_literal(&format!("1{}", "0".repeat(37)), 1e37f64);
     test_literal(&format!("0.{}1", "0".repeat(37)), 1e-38f64);
+    test_literal("-15000000000000000000000000", -1.5e25f64);
+    test_literal(&format!("0.{}125", "0".repeat(29)), 1.25e-30f64);
 
     for value in [
         1e38f64,
@@ -65,11 +77,11 @@ fn test_float_ranges() {
         f64::MIN_POSITIVE,
         -f64::MIN_POSITIVE,
     ] {
-        test_literal(&format!("CAST('{value}' AS float(53))"), value);
+        test_literal(&format!("{value:E}"), value);
     }
 
     for value in [f32::MAX, -f32::MAX, f32::MIN_POSITIVE, -f32::MIN_POSITIVE] {
-        test_literal(&format!("CAST('{value}' AS real)"), value);
+        test_literal(&format!("CAST({value:E} AS real)"), value);
     }
 
     for bits in [1, f32::MIN_POSITIVE.to_bits() - 1] {
@@ -90,6 +102,25 @@ fn test_float_ranges() {
         test_literal_error(value, |error| {
             assert!(matches!(error, SqlLiteralError::FloatNotFinite))
         });
+    }
+}
+
+#[test]
+fn test_float_fast_path_boundaries() {
+    for boundary in [1e-21f64, 1e21] {
+        for bits in [boundary.to_bits() - 1, boundary.to_bits(), boundary.to_bits() + 1] {
+            let value = f64::from_bits(bits);
+            test_literal(&value.to_string(), value);
+            test_literal(&(-value).to_string(), -value);
+        }
+    }
+
+    for boundary in [1e-21f32, 1e21] {
+        for bits in [boundary.to_bits() - 1, boundary.to_bits(), boundary.to_bits() + 1] {
+            let value = f32::from_bits(bits);
+            test_literal(&value.to_string(), value);
+            test_literal(&(-value).to_string(), -value);
+        }
     }
 }
 
@@ -144,8 +175,10 @@ fn test_blob_append() {
 fn test_blob_large_append() {
     use mssql_value_serializer::SqlServerLiteral;
 
-    let bytes = vec![0xABu8; 65_537];
-    let expect = format!("中文字0x{}", "AB".repeat(bytes.len()));
+    // 251 does not divide the chunk sizes, so a misplaced chunk changes the output.
+    let bytes: Vec<u8> = (0..65_537u32).map(|i| (i % 251) as u8).collect();
+    let hex = const_hex::encode_upper(&bytes);
+    let expect = format!("中文字0x{hex}");
 
     for capacity in [0, expect.len() * 2] {
         let mut s = String::with_capacity(capacity);
@@ -153,6 +186,8 @@ fn test_blob_large_append() {
         bytes.append_sql_literal(&mut s).unwrap();
         assert_eq!(expect, s);
     }
+
+    test_literal(&format!("0x{hex}"), bytes.as_slice());
 }
 
 #[test]

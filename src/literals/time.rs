@@ -2,14 +2,37 @@ use std::fmt::{self, Formatter, Write};
 
 use time::{Date, OffsetDateTime, PlainDateTime, Time, UtcDateTime, UtcOffset};
 
-use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset};
+use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset, validate_year};
 use crate::impl_dyn_wrapper;
 
 // ----- Date & Time -----
 
 #[inline]
+fn validate_naive_date(naive_date: &Date) -> Result<(), SqlLiteralError> {
+    validate_year(naive_date.year())
+}
+
+#[inline]
+fn validate_naive_date_time(naive_date_time: &PlainDateTime) -> Result<(), SqlLiteralError> {
+    validate_year(naive_date_time.year())
+}
+
+#[inline]
+fn validate_date_time_utc(date_time: &UtcDateTime) -> Result<(), SqlLiteralError> {
+    validate_year(date_time.year())
+}
+
+#[inline]
 fn validate_date_time_fixed_offset(date_time: &OffsetDateTime) -> Result<(), SqlLiteralError> {
-    validate_time_zone_offset(date_time.offset().whole_seconds())
+    validate_time_zone_offset(date_time.offset().whole_seconds())?;
+    validate_year(date_time.year())?;
+
+    // With a valid local year, UTC conversion can only overflow into year 10000.
+    let utc = date_time.checked_to_utc().ok_or(SqlLiteralError::DateOutOfRange {
+        year: 10_000
+    })?;
+
+    validate_year(utc.year())
 }
 
 #[inline]
@@ -133,12 +156,12 @@ macro_rules! impl_date_time_as_string {
         impl_dyn_wrapper!($ty);
     };
 }
-impl_date_time_as_string!(Date, push_naive_date);
+impl_date_time_as_string!(Date, push_naive_date, validate_naive_date);
 impl_date_time_as_string!(Time, push_naive_time);
-impl_date_time_as_string!(PlainDateTime, push_naive_date_time);
+impl_date_time_as_string!(PlainDateTime, push_naive_date_time, validate_naive_date_time);
 impl_date_time_as_string!(
     OffsetDateTime,
     push_date_time_fixed_offset,
     validate_date_time_fixed_offset
 );
-impl_date_time_as_string!(UtcDateTime, push_date_time_utc);
+impl_date_time_as_string!(UtcDateTime, push_date_time_utc, validate_date_time_utc);

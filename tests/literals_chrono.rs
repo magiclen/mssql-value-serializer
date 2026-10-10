@@ -110,3 +110,69 @@ fn test_chrono_leap_second_before_minute_end() {
         assert!(matches!(error, SqlLiteralError::LeapSecondUnsupported))
     });
 }
+
+#[test]
+fn test_chrono_year_ranges() {
+    test_literal("'0001-01-01'", NaiveDate::from_ymd_opt(1, 1, 1).unwrap());
+    test_literal("'9999-12-31'", NaiveDate::from_ymd_opt(9999, 12, 31).unwrap());
+
+    for year in [0, 10_000] {
+        test_literal_error(NaiveDate::from_ymd_opt(year, 1, 1).unwrap(), |error| {
+            assert!(matches!(error, SqlLiteralError::DateOutOfRange { .. }))
+        });
+    }
+}
+
+#[test]
+fn test_chrono_date_time_year_ranges() {
+    for (text, expect) in [
+        ("0001-01-01T00:01:00+00:01", "'0001-01-01 00:01:00 +00:01'"),
+        ("9999-12-31T23:58:59-00:01", "'9999-12-31 23:58:59 -00:01'"),
+    ] {
+        test_literal(expect, DateTime::<FixedOffset>::from_str(text).unwrap());
+    }
+
+    for (text, year) in [
+        ("0001-01-01T00:00:00+00:01", 0),
+        ("9999-12-31T23:59:59-00:01", 10_000),
+        ("0000-12-31T23:59:00-00:01", 0),
+    ] {
+        let value = DateTime::<FixedOffset>::from_str(text).unwrap();
+        let local =
+            DateTime::<Local>::from_naive_utc_and_offset(value.naive_utc(), *value.offset());
+        let check = |error: &SqlLiteralError| {
+            assert!(
+                matches!(error, SqlLiteralError::DateOutOfRange { year: actual } if *actual == year)
+            );
+        };
+        test_literal_error(value, check);
+        test_literal_error(local, check);
+    }
+
+    let upper = NaiveDate::from_ymd_opt(9999, 12, 31).unwrap().and_hms_opt(23, 59, 59).unwrap();
+    let value = DateTime::<FixedOffset>::from_naive_utc_and_offset(
+        upper,
+        FixedOffset::east_opt(60).unwrap(),
+    );
+    test_literal_error(value, |error| {
+        assert!(matches!(error, SqlLiteralError::DateOutOfRange {
+            year: 10_000
+        }))
+    });
+}
+
+#[test]
+fn test_chrono_date_time_extremes() {
+    for (utc, seconds) in [(NaiveDateTime::MIN, -60), (NaiveDateTime::MAX, 60)] {
+        let value = DateTime::<FixedOffset>::from_naive_utc_and_offset(
+            utc,
+            FixedOffset::east_opt(seconds).unwrap(),
+        );
+        let year = utc.year();
+        test_literal_error(value, |error| {
+            assert!(
+                matches!(error, SqlLiteralError::DateOutOfRange { year: actual } if *actual == year)
+            );
+        });
+    }
+}

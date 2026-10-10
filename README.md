@@ -72,17 +72,19 @@ assert_eq!("
 
 ## Literal Behavior
 
-* Formatting an invalid value with a wrapper panics; use the append methods or Serde to handle value errors.
+* Displaying an invalid value with a wrapper panics; use the append methods or Serde to handle value errors.
+* `Debug` on `SqlServerLiteralDynWrapper` and `SqlServerLiteralForValueListWrapper` shows value errors instead of panicking.
 * Writer errors are returned as `SqlLiteralError::Write` and do not cause a panic.
 * Normal floating-point values use plain decimal text when it fits SQL Server's 38-digit decimal limit.
-* Larger or smaller floating-point values use quoted plain text with `CAST` to `real` for `f32` or `float(53)` for `f64`.
-* These casts still produce floating-point values, not exact decimal values.
+* Larger or smaller floating-point values use scientific notation, which SQL Server reads as `float`; `f32` values are also cast to `real`.
+* Scientific notation produces floating-point values, not exact decimal values.
 * NaN, infinity, and subnormal floating-point values are rejected.
 * BigDecimal values use exact plain decimal text and keep their original scale and trailing zeros.
 * BigDecimal, BigInt, BigUint, i128, and u128 values outside the 38-digit decimal range are rejected before writing.
 * BigDecimal scale is checked even for zero, so an unsupported scale is rejected instead of being normalized.
 * Time zone offsets must be whole minutes from -14:00 to +14:00, and leap seconds are rejected.
-* Fractional seconds are truncated to 100 ns; date values must be valid for the target SQL Server type.
+* Fractional seconds are truncated to 100 ns, and years outside 1 to 9999 are rejected.
+* Values with a UTC offset must have valid local and UTC years; other date limits of the target SQL Server type are not checked.
 * A value list keeps earlier output if a later value fails.
 * Negative zero keeps its literal text; its sign bit is not guaranteed after SQL storage.
 

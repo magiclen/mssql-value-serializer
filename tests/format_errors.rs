@@ -53,9 +53,13 @@ fn test_literal_writer_errors() {
     test_writer_errors(SqlServerLiteralWrapper::new(true));
     test_writer_errors(SqlServerLiteralWrapper::new(123i32));
     test_writer_errors(SqlServerLiteralWrapper::new(8.8f64));
+    test_writer_errors(SqlServerLiteralWrapper::new(1e-30f64));
+    test_writer_errors(SqlServerLiteralWrapper::new(1e100f64));
+    test_writer_errors(SqlServerLiteralWrapper::new(f32::MIN_POSITIVE));
     test_writer_errors(SqlServerLiteralWrapper::new('\''));
     test_writer_errors(SqlServerLiteralWrapper::new("O'Brien中"));
     test_writer_errors(SqlServerLiteralWrapper::new([0u8, 255].as_slice()));
+    test_writer_errors(SqlServerLiteralWrapper::new(vec![0u8; 257]));
     test_writer_errors(SqlServerLiteralWrapper::new(None::<bool>));
     test_writer_errors(SqlServerCharWrapper::new('\''));
     test_writer_errors(SqlServerCharWrapper::new("O'Brien"));
@@ -73,26 +77,14 @@ fn test_value_list_writer_errors() {
     let values = SqlServerLiteralForValueListWrapper::new(vec![true, false]);
     test_writer_errors(&values);
     test_debug_writer_errors(&values);
-    let mut out = FailingWriter {
-        remaining: 1, failed: false
-    };
-    assert_eq!(Err(fmt::Error), write!(out, "{values}"));
 
     let values: Vec<Box<dyn SqlServerLiteral>> = vec![Box::new(true), Box::new(false)];
     let values = SqlServerLiteralForValueListWrapper::new(values);
     test_writer_errors(&values);
-    let mut out = FailingWriter {
-        remaining: 1, failed: false
-    };
-    assert_eq!(Err(fmt::Error), write!(out, "{values}"));
 
     let values: Vec<&dyn SqlServerLiteral> = vec![&true, &false];
     let values = SqlServerLiteralForValueListWrapper::new(values);
     test_writer_errors(&values);
-    let mut out = FailingWriter {
-        remaining: 1, failed: false
-    };
-    assert_eq!(Err(fmt::Error), write!(out, "{values}"));
 }
 
 #[test]
@@ -108,6 +100,18 @@ fn test_invalid_float_errors() {
 fn test_invalid_float_display() {
     let mut out = String::new();
     write!(out, "{}", SqlServerLiteralWrapper::new(f64::NAN)).unwrap();
+}
+
+#[test]
+fn test_invalid_float_debug() {
+    let value = SqlServerLiteralDynWrapper::from(f64::NAN);
+    assert_eq!("Owned(<invalid: float value is not finite>)", format!("{value:?}"));
+
+    let values = SqlServerLiteralForValueListWrapper::new(vec![1.0f64, f64::NAN]);
+    assert_eq!(
+        "SqlServerLiteralForValueListWrapper(1, <invalid: float value is not finite>)",
+        format!("{values:?}")
+    );
 }
 
 #[test]

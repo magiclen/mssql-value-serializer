@@ -8,14 +8,15 @@ use std::{
 };
 
 use crate::{
-    SqlLiteralError, SqlServerLiteral, SqlServerLiteralForValueList, errors::into_fmt_result,
+    SqlLiteralError, SqlServerLiteral, SqlServerLiteralForValueList,
+    errors::{into_debug_fmt_result, into_fmt_result},
 };
 
 /// A wrapper type for any value implementing [`SqlServerLiteral`].
 ///
 /// This type allows you to easily convert a value into one that implements both [`Display`] and `serde::Serialize`, enabling SQL Server literal behavior.
 ///
-/// Formatting an invalid SQL value panics; use the append methods to handle value errors.
+/// Displaying an invalid SQL value panics; use the append methods to handle value errors.
 ///
 /// # Examples
 ///
@@ -120,7 +121,7 @@ impl<T: SqlServerLiteral> serde::Serialize for SqlServerLiteralWrapper<T> {
 ///
 /// This type allows generic code to handle both borrowed and owned SQL literal trait objects uniformly. It is primarily used when dynamically storing or formatting SQL literal values, without having to commit to a single ownership model.
 ///
-/// Formatting an invalid SQL value panics; use the append methods to handle value errors.
+/// Displaying an invalid SQL value panics; use the append methods to handle value errors.
 ///
 /// # Examples
 ///
@@ -174,7 +175,7 @@ impl Debug for SqlServerLiteralDynWrapper<'_> {
         impl<'a, T: SqlServerLiteral + ?Sized> Debug for SqlServerLiteralDynWrapperDebugFormatter<'a, T> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                into_fmt_result(self.0.append_sql_literal_fmt(f))
+                into_debug_fmt_result(self.0.append_sql_literal_fmt(f), f)
             }
         }
 
@@ -354,7 +355,7 @@ impl<'a, T: SqlServerLiteralForValueList + ?Sized> Debug
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        into_fmt_result(self.0.append_sql_literal_for_value_list_fmt(f))
+        into_debug_fmt_result(self.0.append_sql_literal_for_value_list_fmt(f), f)
     }
 }
 
@@ -362,7 +363,7 @@ impl<'a, T: SqlServerLiteralForValueList + ?Sized> Debug
 ///
 /// This type allows you to easily convert a value into one that implements both [`Display`] and `serde::Serialize`, enabling it to exhibit SQL Server literal value list behavior.
 ///
-/// Formatting an invalid SQL value panics; use the append methods to handle value errors.
+/// Displaying an invalid SQL value panics; use the append methods to handle value errors.
 ///
 /// # Examples
 ///
@@ -611,14 +612,14 @@ macro_rules! impl_char_wrapper {
             impl<'a> SqlServerLiteral for SqlServerCharWrapper<'a, $ty> {
                 #[inline]
                 fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError> {
-                    $crate::push_string_literal(&self.0, out).unwrap();
+                    $crate::push_string_literal::<{ usize::MAX }>(&self.0, out).unwrap();
 
                     Ok(())
                 }
 
                 #[inline]
                 fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-                    $crate::push_string_literal(&self.0, out)?;
+                    $crate::push_string_literal::<64>(&self.0, out)?;
 
                     Ok(())
                 }

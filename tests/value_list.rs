@@ -3,7 +3,9 @@ mod common;
 use std::collections::HashSet;
 
 use common::test_literals;
-use mssql_value_serializer::{SqlServerLiteral, append_sql_literal_for_value_list};
+use mssql_value_serializer::{
+    SqlLiteralError, SqlServerLiteral, append_sql_literal_for_value_list,
+};
 
 #[test]
 fn test_append_sql_literal_for_value_list_empty() {
@@ -12,6 +14,17 @@ fn test_append_sql_literal_for_value_list_empty() {
     append_sql_literal_for_value_list(&[], &mut s).unwrap();
 
     assert!(s.is_empty());
+}
+
+#[test]
+fn test_value_list_error_source() {
+    use std::error::Error;
+
+    let error =
+        append_sql_literal_for_value_list(&[&true, &f64::NAN], &mut String::new()).unwrap_err();
+    assert_eq!(1, error.index);
+    let source = error.source().unwrap().downcast_ref::<SqlLiteralError>().unwrap();
+    assert!(matches!(source, SqlLiteralError::FloatNotFinite));
 }
 
 #[test]

@@ -6,14 +6,36 @@ use jiff::{
     tz::Offset,
 };
 
-use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset};
+use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset, validate_year};
 use crate::impl_dyn_wrapper;
 
 // ----- Date & Time -----
 
 #[inline]
+fn validate_naive_date(naive_date: &Date) -> Result<(), SqlLiteralError> {
+    validate_year(i32::from(naive_date.year()))
+}
+
+#[inline]
+fn validate_naive_date_time(naive_date_time: &DateTime) -> Result<(), SqlLiteralError> {
+    validate_naive_date(&naive_date_time.date())
+}
+
+#[inline]
+fn validate_timestamp(timestamp: &Timestamp) -> Result<(), SqlLiteralError> {
+    // Include the boundary second because as_second truncates negative fractional seconds toward zero.
+    if timestamp.as_second() <= -62_135_596_800 {
+        return validate_naive_date_time(&Offset::UTC.to_datetime(*timestamp));
+    }
+
+    Ok(())
+}
+
+#[inline]
 fn validate_zoned(date_time: &Zoned) -> Result<(), SqlLiteralError> {
-    validate_time_zone_offset(date_time.offset().seconds())
+    validate_time_zone_offset(date_time.offset().seconds())?;
+    validate_timestamp(&date_time.timestamp())?;
+    validate_naive_date_time(&date_time.datetime())
 }
 
 #[inline]
@@ -129,8 +151,8 @@ macro_rules! impl_date_time_as_string {
         impl_dyn_wrapper!($ty);
     };
 }
-impl_date_time_as_string!(Date, push_naive_date);
+impl_date_time_as_string!(Date, push_naive_date, validate_naive_date);
 impl_date_time_as_string!(Time, push_naive_time);
-impl_date_time_as_string!(DateTime, push_naive_date_time);
-impl_date_time_as_string!(Timestamp, push_timestamp);
+impl_date_time_as_string!(DateTime, push_naive_date_time, validate_naive_date_time);
+impl_date_time_as_string!(Timestamp, push_timestamp, validate_timestamp);
 impl_date_time_as_string!(Zoned, push_zoned, validate_zoned);
