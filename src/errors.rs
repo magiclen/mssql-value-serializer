@@ -4,7 +4,7 @@ use std::{
 };
 
 /// Errors that occur when serializing a SQL Server literal.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SqlLiteralError {
     /// The floating-point value is not finite (`NaN` or `infinity`).
@@ -86,7 +86,7 @@ pub(crate) fn into_debug_fmt_result(
 }
 
 /// Errors that occur when serializing a SQL Server literal for a value list.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqlLiteralErrorWithIndex {
     pub index: usize,
     pub error: SqlLiteralError,
@@ -104,6 +104,7 @@ impl Display for SqlLiteralErrorWithIndex {
 impl Error for SqlLiteralErrorWithIndex {
     #[inline]
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.error)
+        // Display already shows the inner error, so return its source to avoid showing it twice.
+        self.error.source()
     }
 }

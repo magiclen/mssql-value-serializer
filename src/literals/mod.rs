@@ -48,6 +48,85 @@ fn validate_year(year: i32) -> Result<(), SqlLiteralError> {
     Ok(())
 }
 
+#[cfg(any(feature = "chrono", feature = "jiff", feature = "time"))]
+fn push_time(
+    hour: u32,
+    minute: u32,
+    second: u32,
+    nanosecond: u32,
+    out: &mut impl Write,
+) -> fmt::Result {
+    write!(out, "{hour:02}:{minute:02}:{second:02}")?;
+
+    let mut nnnnnnn = (nanosecond / 100) * 100;
+
+    if nnnnnnn > 0 {
+        out.write_char('.')?;
+
+        let digits = nnnnnnn.ilog10() + 1;
+
+        for _ in digits..9 {
+            out.write_char('0')?;
+        }
+
+        // trim trailing zeros
+        while nnnnnnn.is_multiple_of(10) {
+            nnnnnnn /= 10;
+        }
+
+        write!(out, "{nnnnnnn}")?;
+    }
+
+    Ok(())
+}
+
+#[cfg(any(feature = "chrono", feature = "jiff", feature = "time"))]
+fn push_time_zone_offset(seconds: i32, out: &mut impl Write) -> fmt::Result {
+    let (sign, abs_seconds) = if seconds >= 0 { ('+', seconds) } else { ('-', -seconds) };
+
+    let hours = abs_seconds / 3600;
+    let minutes = (abs_seconds % 3600) / 60;
+
+    write!(out, "{sign}{hours:02}:{minutes:02}")
+}
+
+#[cfg(any(feature = "chrono", feature = "jiff", feature = "time"))]
+macro_rules! impl_date_time_as_string {
+    ($ty:ty, $f:ident $(, $validate:ident)?) => {
+        impl $crate::SqlServerLiteral for $ty {
+            #[inline]
+            fn append_sql_literal(&self, out: &mut String) -> Result<(), $crate::SqlLiteralError> {
+                $($validate(self)?;)?
+
+                out.push('\'');
+                $f(self, out).unwrap();
+                out.push('\'');
+
+                Ok(())
+            }
+
+            #[inline]
+            fn append_sql_literal_fmt(
+                &self,
+                out: &mut ::std::fmt::Formatter<'_>,
+            ) -> Result<(), $crate::SqlLiteralError> {
+                $($validate(self)?;)?
+
+                ::std::fmt::Write::write_char(out, '\'')?;
+                $f(self, out)?;
+                ::std::fmt::Write::write_char(out, '\'')?;
+
+                Ok(())
+            }
+        }
+
+        $crate::impl_dyn_wrapper!($ty);
+    };
+}
+
+#[cfg(any(feature = "chrono", feature = "jiff", feature = "time"))]
+use impl_date_time_as_string;
+
 // ----- Booleans -----
 
 impl SqlServerLiteral for bool {

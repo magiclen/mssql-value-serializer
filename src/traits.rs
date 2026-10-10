@@ -1,11 +1,8 @@
 use std::{borrow::Cow, collections::HashSet, fmt::Formatter};
 
 use crate::{
-    SqlLiteralError, append_sql_literal_for_value_list_from_box_iter,
-    append_sql_literal_for_value_list_from_box_iter_fmt,
-    append_sql_literal_for_value_list_from_dyn_iter,
-    append_sql_literal_for_value_list_from_dyn_iter_fmt,
-    append_sql_literal_for_value_list_from_iter, append_sql_literal_for_value_list_from_iter_fmt,
+    SqlLiteralError, append_sql_literal_for_value_list_from_iter,
+    append_sql_literal_for_value_list_from_iter_fmt,
 };
 
 /// Represents a type that can be converted into a valid SQL Server literal.
@@ -13,8 +10,6 @@ use crate::{
 /// # Example
 ///
 /// ```rust
-/// use std::{collections::HashSet, hash::Hash};
-///
 /// use mssql_value_serializer::SqlServerLiteral;
 ///
 /// let value = "123456";
@@ -52,7 +47,7 @@ impl<T: ?Sized + ToOwned + SqlServerLiteral> SqlServerLiteral for Cow<'_, T> {
 /// # Example
 ///
 /// ```rust
-/// use std::{collections::HashSet, hash::Hash};
+/// use std::collections::HashSet;
 ///
 /// use mssql_value_serializer::SqlServerLiteralForValueList;
 ///
@@ -148,7 +143,7 @@ impl<T: SqlServerLiteral> SqlServerLiteralForValueList for &[T] {
 impl SqlServerLiteralForValueList for Vec<Box<dyn SqlServerLiteral>> {
     #[inline]
     fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_box_iter(self.iter(), out)
+        append_sql_literal_for_value_list_from_iter(self.iter().map(|value| value.as_ref()), out)
     }
 
     #[inline]
@@ -156,14 +151,17 @@ impl SqlServerLiteralForValueList for Vec<Box<dyn SqlServerLiteral>> {
         &self,
         out: &mut Formatter<'_>,
     ) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_box_iter_fmt(self.iter(), out)
+        append_sql_literal_for_value_list_from_iter_fmt(
+            self.iter().map(|value| value.as_ref()),
+            out,
+        )
     }
 }
 
 impl SqlServerLiteralForValueList for Vec<&dyn SqlServerLiteral> {
     #[inline]
     fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_dyn_iter(self.iter(), out)
+        append_sql_literal_for_value_list_from_iter(self.iter().copied(), out)
     }
 
     #[inline]
@@ -171,14 +169,14 @@ impl SqlServerLiteralForValueList for Vec<&dyn SqlServerLiteral> {
         &self,
         out: &mut Formatter<'_>,
     ) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_dyn_iter_fmt(self.iter(), out)
+        append_sql_literal_for_value_list_from_iter_fmt(self.iter().copied(), out)
     }
 }
 
 impl SqlServerLiteralForValueList for &[&dyn SqlServerLiteral] {
     #[inline]
     fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_dyn_iter(self.iter(), out)
+        append_sql_literal_for_value_list_from_iter(self.iter().copied(), out)
     }
 
     #[inline]
@@ -186,6 +184,6 @@ impl SqlServerLiteralForValueList for &[&dyn SqlServerLiteral] {
         &self,
         out: &mut Formatter<'_>,
     ) -> Result<(), SqlLiteralError> {
-        append_sql_literal_for_value_list_from_dyn_iter_fmt(self.iter(), out)
+        append_sql_literal_for_value_list_from_iter_fmt(self.iter().copied(), out)
     }
 }

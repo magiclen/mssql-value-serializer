@@ -25,7 +25,7 @@ use crate::{
 ///
 /// let needle = "Some text";
 ///
-/// let mut sql = format!(
+/// let sql = format!(
 ///     "
 ///         SELECT
 ///             *
@@ -109,9 +109,7 @@ impl<T: SqlServerLiteral> serde::Serialize for SqlServerLiteralWrapper<T> {
         S: serde::Serializer, {
         let mut s = String::new();
 
-        self.0
-            .append_sql_literal(&mut s)
-            .map_err(|error| serde::ser::Error::custom(error.to_string()))?;
+        self.0.append_sql_literal(&mut s).map_err(serde::ser::Error::custom)?;
 
         serializer.serialize_str(s.as_str())
     }
@@ -132,13 +130,13 @@ impl<T: SqlServerLiteral> serde::Serialize for SqlServerLiteralWrapper<T> {
 ///
 /// let s = String::from("Some text");
 ///
-/// let mut values: Vec<SqlServerLiteralDynWrapper<'_>> = vec![
+/// let values: Vec<SqlServerLiteralDynWrapper<'_>> = vec![
 ///     SqlServerLiteralDynWrapper::from(1u8),
 ///     SqlServerLiteralDynWrapper::from(2i8),
 ///     SqlServerLiteralDynWrapper::from(&s),
 /// ];
 ///
-/// let mut sql = format!(
+/// let sql = format!(
 ///     "
 ///         SELECT
 ///             *
@@ -337,9 +335,7 @@ impl<'a> serde::Serialize for SqlServerLiteralDynWrapper<'a> {
         S: serde::Serializer, {
         let mut s = String::new();
 
-        self.deref()
-            .append_sql_literal(&mut s)
-            .map_err(|error| serde::ser::Error::custom(error.to_string()))?;
+        self.deref().append_sql_literal(&mut s).map_err(serde::ser::Error::custom)?;
 
         serializer.serialize_str(s.as_str())
     }
@@ -368,11 +364,11 @@ impl<'a, T: SqlServerLiteralForValueList + ?Sized> Debug
 /// # Examples
 ///
 /// ```rust
-/// use mssql_value_serializer::{SqlServerLiteral, SqlServerLiteralForValueListWrapper};
+/// use mssql_value_serializer::SqlServerLiteralForValueListWrapper;
 ///
 /// let needles: &[&str] = &["Some text", "Foo", "Bar"];
 ///
-/// let mut sql = format!(
+/// let sql = format!(
 ///     "
 ///         SELECT
 ///             *
@@ -395,6 +391,7 @@ impl<'a, T: SqlServerLiteralForValueList + ?Sized> Debug
 ///     ",
 ///     sql
 /// );
+/// ```
 pub struct SqlServerLiteralForValueListWrapper<T: SqlServerLiteralForValueList>(T);
 
 impl<T: SqlServerLiteralForValueList> SqlServerLiteralForValueListWrapper<T> {
@@ -470,9 +467,7 @@ impl<T: SqlServerLiteralForValueList> serde::Serialize for SqlServerLiteralForVa
         S: serde::Serializer, {
         let mut s = String::new();
 
-        self.0
-            .append_sql_literal_for_value_list(&mut s)
-            .map_err(|error| serde::ser::Error::custom(error.to_string()))?;
+        self.0.append_sql_literal_for_value_list(&mut s).map_err(serde::ser::Error::custom)?;
 
         serializer.serialize_str(s.as_str())
     }
@@ -489,7 +484,7 @@ impl<T: SqlServerLiteralForValueList> serde::Serialize for SqlServerLiteralForVa
 ///
 /// let needle = "Some text";
 ///
-/// let mut sql = format!(
+/// let sql = format!(
 ///     "
 ///         SELECT
 ///             *
@@ -551,8 +546,7 @@ where
         S: serde::Serializer, {
         let mut s = String::new();
 
-        self.append_sql_literal(&mut s)
-            .map_err(|error| serde::ser::Error::custom(error.to_string()))?;
+        self.append_sql_literal(&mut s).map_err(serde::ser::Error::custom)?;
 
         serializer.serialize_str(s.as_str())
     }

@@ -23,8 +23,8 @@ fn test_value_list_error_source() {
     let error =
         append_sql_literal_for_value_list(&[&true, &f64::NAN], &mut String::new()).unwrap_err();
     assert_eq!(1, error.index);
-    let source = error.source().unwrap().downcast_ref::<SqlLiteralError>().unwrap();
-    assert!(matches!(source, SqlLiteralError::FloatNotFinite));
+    assert!(matches!(error.error, SqlLiteralError::FloatNotFinite));
+    assert!(error.source().is_none());
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn test_append_sql_literal_for_value_list_static_vec() {
 }
 
 #[test]
-fn test_append_sql_literal_for_value_list_static_hast_set() {
+fn test_append_sql_literal_for_value_list_static_hash_set() {
     let mut set: HashSet<i32> = HashSet::new();
 
     set.insert(1);

@@ -85,6 +85,7 @@ assert_eq!("
 * Time zone offsets must be whole minutes from -14:00 to +14:00, and leap seconds are rejected.
 * Fractional seconds are truncated to 100 ns, and years outside 1 to 9999 are rejected.
 * Values with a UTC offset must have valid local and UTC years; other date limits of the target SQL Server type are not checked.
+* Date and time literals are unambiguous for `date`, `time`, `datetime2`, and `datetimeoffset`; for `datetime` and `smalldatetime`, the date order depends on `SET DATEFORMAT`, and more than three fractional digits can fail to convert.
 * A value list keeps earlier output if a later value fails.
 * Negative zero keeps its literal text; its sign bit is not guaranteed after SQL storage.
 
