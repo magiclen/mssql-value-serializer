@@ -6,10 +6,15 @@ use jiff::{
     tz::Offset,
 };
 
-use super::{SqlLiteralError, SqlServerLiteral};
+use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset};
 use crate::impl_dyn_wrapper;
 
 // ----- Date & Time -----
+
+#[inline]
+fn validate_zoned(date_time: &Zoned) -> Result<(), SqlLiteralError> {
+    validate_time_zone_offset(date_time.offset().seconds())
+}
 
 #[inline]
 fn push_naive_date(naive_date: &Date, out: &mut impl Write) -> fmt::Result {
@@ -71,12 +76,6 @@ fn push_time_zone(fixed_offset: &Offset, out: &mut impl Write) -> fmt::Result {
     let hours = abs_seconds / 3600;
     let minutes = (abs_seconds % 3600) / 60;
 
-    // seconds should be zero for SQL Server (or ignore it in release)
-    debug_assert!(
-        abs_seconds % 60 == 0,
-        "the seconds part of {fixed_offset:?} should be zero for SQL Server"
-    );
-
     write!(out, "{sign}{hours:02}:{minutes:02}")
 }
 
@@ -99,10 +98,12 @@ fn push_zoned(date_time: &Zoned, out: &mut impl Write) -> fmt::Result {
 }
 
 macro_rules! impl_date_time_as_string {
-    ($ty:ty, $f:ident) => {
+    ($ty:ty, $f:ident $(, $validate:ident)?) => {
         impl SqlServerLiteral for $ty {
             #[inline]
             fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError> {
+                $($validate(self)?;)?
+
                 out.push('\'');
                 $f(self, out).unwrap();
                 out.push('\'');
@@ -115,9 +116,11 @@ macro_rules! impl_date_time_as_string {
                 &self,
                 out: &mut Formatter<'_>,
             ) -> Result<(), SqlLiteralError> {
-                out.write_char('\'').unwrap();
-                $f(self, out).unwrap();
-                out.write_char('\'').unwrap();
+                $($validate(self)?;)?
+
+                out.write_char('\'')?;
+                $f(self, out)?;
+                out.write_char('\'')?;
 
                 Ok(())
             }
@@ -130,4 +133,4 @@ impl_date_time_as_string!(Date, push_naive_date);
 impl_date_time_as_string!(Time, push_naive_time);
 impl_date_time_as_string!(DateTime, push_naive_date_time);
 impl_date_time_as_string!(Timestamp, push_timestamp);
-impl_date_time_as_string!(Zoned, push_zoned);
+impl_date_time_as_string!(Zoned, push_zoned, validate_zoned);

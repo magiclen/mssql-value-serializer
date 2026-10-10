@@ -30,6 +30,8 @@ pub trait SqlServerLiteral {
     fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError>;
 
     /// Appends the SQL literal representation of this value to the given writer.
+    ///
+    /// Writer errors are returned as `SqlLiteralError::Write`.
     fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError>;
 }
 
@@ -73,6 +75,8 @@ pub trait SqlServerLiteralForValueList {
     fn append_sql_literal_for_value_list(&self, out: &mut String) -> Result<(), SqlLiteralError>;
 
     /// Appends a comma-separated list of SQL Server literals representing the elements of this collection to the provided output writer.
+    ///
+    /// Writer errors are returned as `SqlLiteralError::Write`; earlier output is kept on error.
     fn append_sql_literal_for_value_list_fmt(
         &self,
         out: &mut Formatter<'_>,

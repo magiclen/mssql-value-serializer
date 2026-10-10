@@ -8,6 +8,16 @@ use std::{
 pub enum SqlLiteralError {
     /// The floating-point value is not finite (`NaN` or `infinity`).
     FloatNotFinite,
+    /// The output writer failed.
+    Write(fmt::Error),
+    /// SQL Server cannot store a subnormal floating-point value.
+    FloatSubnormal,
+    /// The value needs more than 38 decimal digits or an unsupported scale.
+    NumericOutOfRange,
+    /// The time zone offset is not a whole minute or is outside -14:00 to +14:00.
+    InvalidTimeZoneOffset { seconds: i32 },
+    /// SQL Server does not support leap seconds.
+    LeapSecondUnsupported,
 }
 
 impl Display for SqlLiteralError {
@@ -15,11 +25,46 @@ impl Display for SqlLiteralError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::FloatNotFinite => f.write_str("float value is not finite"),
+            Self::Write(_) => f.write_str("output writer failed"),
+            Self::FloatSubnormal => {
+                f.write_str("SQL Server does not support subnormal float values")
+            },
+            Self::NumericOutOfRange => {
+                f.write_str("numeric value is outside the SQL Server decimal range")
+            },
+            Self::InvalidTimeZoneOffset {
+                seconds,
+            } => write!(f, "time zone offset of {seconds} seconds is not supported by SQL Server"),
+            Self::LeapSecondUnsupported => f.write_str("SQL Server does not support leap seconds"),
         }
     }
 }
 
-impl Error for SqlLiteralError {}
+impl From<fmt::Error> for SqlLiteralError {
+    #[inline]
+    fn from(error: fmt::Error) -> Self {
+        Self::Write(error)
+    }
+}
+
+impl Error for SqlLiteralError {
+    #[inline]
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Write(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+#[inline]
+pub(crate) fn into_fmt_result(result: Result<(), SqlLiteralError>) -> fmt::Result {
+    match result {
+        Ok(()) => Ok(()),
+        Err(SqlLiteralError::Write(error)) => Err(error),
+        Err(error) => panic!("cannot format SQL Server literal: {error}"),
+    }
+}
 
 /// Errors that occur when serializing a SQL Server literal for a value list.
 #[derive(Debug)]
@@ -37,4 +82,9 @@ impl Display for SqlLiteralErrorWithIndex {
     }
 }
 
-impl Error for SqlLiteralErrorWithIndex {}
+impl Error for SqlLiteralErrorWithIndex {
+    #[inline]
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.error)
+    }
+}

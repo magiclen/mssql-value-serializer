@@ -2,10 +2,15 @@ use std::fmt::{self, Formatter, Write};
 
 use time::{Date, OffsetDateTime, PlainDateTime, Time, UtcDateTime, UtcOffset};
 
-use super::{SqlLiteralError, SqlServerLiteral};
+use super::{SqlLiteralError, SqlServerLiteral, validate_time_zone_offset};
 use crate::impl_dyn_wrapper;
 
 // ----- Date & Time -----
+
+#[inline]
+fn validate_date_time_fixed_offset(date_time: &OffsetDateTime) -> Result<(), SqlLiteralError> {
+    validate_time_zone_offset(date_time.offset().whole_seconds())
+}
 
 #[inline]
 fn push_naive_date(naive_date: &Date, out: &mut impl Write) -> fmt::Result {
@@ -39,7 +44,7 @@ fn push_naive_time(naive_time: &Time, out: &mut impl Write) -> fmt::Result {
         }
 
         // trim trailing zeros
-        while nnnnnnn % 10 == 0 {
+        while nnnnnnn.is_multiple_of(10) {
             nnnnnnn /= 10;
         }
 
@@ -66,12 +71,6 @@ fn push_time_zone(fixed_offset: &UtcOffset, out: &mut impl Write) -> fmt::Result
 
     let hours = abs_seconds / 3600;
     let minutes = (abs_seconds % 3600) / 60;
-
-    // seconds should be zero for SQL Server (or ignore it in release)
-    debug_assert!(
-        abs_seconds % 60 == 0,
-        "the seconds part of {fixed_offset:?} should be zero for SQL Server"
-    );
 
     write!(out, "{sign}{hours:02}:{minutes:02}")
 }
@@ -103,10 +102,12 @@ fn push_date_time_fixed_offset(date_time: &OffsetDateTime, out: &mut impl Write)
 }
 
 macro_rules! impl_date_time_as_string {
-    ($ty:ty, $f:ident) => {
+    ($ty:ty, $f:ident $(, $validate:ident)?) => {
         impl SqlServerLiteral for $ty {
             #[inline]
             fn append_sql_literal(&self, out: &mut String) -> Result<(), SqlLiteralError> {
+                $($validate(self)?;)?
+
                 out.push('\'');
                 $f(self, out).unwrap();
                 out.push('\'');
@@ -119,9 +120,11 @@ macro_rules! impl_date_time_as_string {
                 &self,
                 out: &mut Formatter<'_>,
             ) -> Result<(), SqlLiteralError> {
-                out.write_char('\'').unwrap();
-                $f(self, out).unwrap();
-                out.write_char('\'').unwrap();
+                $($validate(self)?;)?
+
+                out.write_char('\'')?;
+                $f(self, out)?;
+                out.write_char('\'')?;
 
                 Ok(())
             }
@@ -133,5 +136,9 @@ macro_rules! impl_date_time_as_string {
 impl_date_time_as_string!(Date, push_naive_date);
 impl_date_time_as_string!(Time, push_naive_time);
 impl_date_time_as_string!(PlainDateTime, push_naive_date_time);
-impl_date_time_as_string!(OffsetDateTime, push_date_time_fixed_offset);
+impl_date_time_as_string!(
+    OffsetDateTime,
+    push_date_time_fixed_offset,
+    validate_date_time_fixed_offset
+);
 impl_date_time_as_string!(UtcDateTime, push_date_time_utc);

@@ -24,6 +24,18 @@ use crate::{
     impl_dyn_wrapper_slice,
 };
 
+#[cfg(any(feature = "chrono", feature = "jiff", feature = "time"))]
+#[inline]
+fn validate_time_zone_offset(seconds: i32) -> Result<(), SqlLiteralError> {
+    if seconds % 60 != 0 || !(-50_400..=50_400).contains(&seconds) {
+        return Err(SqlLiteralError::InvalidTimeZoneOffset {
+            seconds,
+        });
+    }
+
+    Ok(())
+}
+
 // ----- Booleans -----
 
 impl SqlServerLiteral for bool {
@@ -36,7 +48,7 @@ impl SqlServerLiteral for bool {
 
     #[inline]
     fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-        out.write_char(if *self { '1' } else { '0' }).unwrap();
+        out.write_char(if *self { '1' } else { '0' })?;
 
         Ok(())
     }
@@ -59,7 +71,7 @@ macro_rules! impl_int {
 
                 #[inline]
                 fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-                    write!(out, "{}", *self).unwrap();
+                    write!(out, "{}", *self)?;
 
                     Ok(())
                 }
@@ -92,7 +104,7 @@ macro_rules! impl_float {
                         return Err(SqlLiteralError::FloatNotFinite);
                     }
 
-                    write!(out, "{}", *self).unwrap();
+                    write!(out, "{}", *self)?;
 
                     Ok(())
                 }
@@ -144,7 +156,7 @@ impl SqlServerLiteral for char {
 
     #[inline]
     fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-        push_nstring_literal_char(self, out).unwrap();
+        push_nstring_literal_char(self, out)?;
 
         Ok(())
     }
@@ -197,7 +209,7 @@ macro_rules! impl_string {
 
                 #[inline]
                 fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-                    push_nstring_literal(self, out).unwrap();
+                    push_nstring_literal(self, out)?;
 
                     Ok(())
                 }
@@ -222,6 +234,10 @@ fn push_hex_bytes(bytes: &[u8], out: &mut impl Write) -> fmt::Result {
 }
 
 fn push_hex_bytes_to_string(bytes: &[u8], out: &mut String) -> fmt::Result {
+    let hex_len = bytes.len().checked_mul(2).expect("binary literal is too large");
+    let append_len = hex_len.checked_add(2).expect("binary literal is too large");
+
+    out.reserve(append_len);
     out.push_str("0x");
 
     if bytes.is_empty() {
@@ -229,14 +245,11 @@ fn push_hex_bytes_to_string(bytes: &[u8], out: &mut String) -> fmt::Result {
     }
 
     let len = out.len();
-    let hex_len = bytes.len() * 2;
-
-    out.reserve(hex_len);
-
+    // SAFETY: The new bytes are ASCII before encoding, and the encoder only writes ASCII into the tail.
     unsafe {
         let v = out.as_mut_vec();
 
-        v.set_len(len + hex_len);
+        v.resize(len + hex_len, b'0');
 
         const_hex::encode_to_slice_upper(bytes, &mut v[len..]).unwrap(); // should not panic because we have calculated the length
     }
@@ -257,7 +270,7 @@ macro_rules! impl_u8_array {
 
                 #[inline]
                 fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-                    push_hex_bytes(self, out).unwrap();
+                    push_hex_bytes(self, out)?;
 
                     Ok(())
                 }
@@ -289,7 +302,7 @@ impl<T: SqlServerLiteral> SqlServerLiteral for Option<T> {
         match self {
             Some(v) => v.append_sql_literal_fmt(out),
             None => {
-                out.write_str("NULL").unwrap();
+                out.write_str("NULL")?;
 
                 Ok(())
             },

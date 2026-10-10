@@ -40,7 +40,7 @@ bigdecimal = ["dep:bigdecimal", "num-bigint"]
 num-bigint = ["dep:num-bigint"]
 uuid = ["dep:uuid"]
 
-stable-local = ["chrono"]      # if you can ensure that the local timezone does not use DST in your case, enable this feature to use a fixed offset for DateTime<Local> to make the format process faster
+stable-local = ["chrono"]      # cache the first local UTC offset and format other offsets directly
 
 all = ["serde", "chrono", "jiff", "time", "rust_decimal", "bigdecimal", "uuid"]
 

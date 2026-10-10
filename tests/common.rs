@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 
-use std::fmt::Write;
+use std::{
+    cell::RefCell,
+    fmt::{self, Display, Formatter, Write},
+};
 
 use mssql_value_serializer::{
-    SqlServerLiteral, SqlServerLiteralForValueList, SqlServerLiteralForValueListWrapper,
-    SqlServerLiteralWrapper,
+    SqlLiteralError, SqlServerLiteral, SqlServerLiteralForValueList,
+    SqlServerLiteralForValueListWrapper, SqlServerLiteralWrapper,
 };
 
 pub fn test_literal<T: SqlServerLiteral>(expect: &'static str, literal: T) {
@@ -23,6 +26,26 @@ pub fn test_literal<T: SqlServerLiteral>(expect: &'static str, literal: T) {
 
         assert_eq!(expect, s.as_str());
     }
+}
+
+pub fn test_literal_error<T: SqlServerLiteral>(literal: T, check: impl Fn(&SqlLiteralError)) {
+    let mut s = String::from("prefix");
+    check(&literal.append_sql_literal(&mut s).unwrap_err());
+    assert_eq!("prefix", s);
+
+    struct Capture<'a, T>(&'a T, RefCell<Option<SqlLiteralError>>);
+
+    impl<T: SqlServerLiteral> Display for Capture<'_, T> {
+        fn fmt(&self, out: &mut Formatter<'_>) -> fmt::Result {
+            *self.1.borrow_mut() = self.0.append_sql_literal_fmt(out).err();
+            Ok(())
+        }
+    }
+
+    let capture = Capture(&literal, RefCell::new(None));
+    write!(s, "{capture}").unwrap();
+    check(capture.1.borrow().as_ref().unwrap());
+    assert_eq!("prefix", s);
 }
 
 pub fn test_literals<T: SqlServerLiteralForValueList>(expect: &[&'static str], literals: T) {

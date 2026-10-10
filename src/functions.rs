@@ -71,7 +71,7 @@ where
         value.append_sql_literal_fmt(out)?;
 
         for value in iter {
-            out.write_str(", ").unwrap();
+            out.write_str(", ")?;
 
             value.append_sql_literal_fmt(out)?;
         }
@@ -106,7 +106,7 @@ pub(crate) fn append_sql_literal_for_value_list_from_box_iter_fmt<'a>(
         value.append_sql_literal_fmt(out)?;
 
         for value in iter {
-            out.write_str(", ").unwrap();
+            out.write_str(", ")?;
 
             value.append_sql_literal_fmt(out)?;
         }
@@ -142,7 +142,7 @@ pub(crate) fn append_sql_literal_for_value_list_from_dyn_iter_fmt<'a>(
         value.append_sql_literal_fmt(out)?;
 
         for value in iter {
-            out.write_str(", ").unwrap();
+            out.write_str(", ")?;
 
             value.append_sql_literal_fmt(out)?;
         }

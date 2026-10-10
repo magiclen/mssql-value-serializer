@@ -48,6 +48,26 @@ fn test_blob() {
 }
 
 #[test]
+fn test_blob_append() {
+    use mssql_value_serializer::SqlServerLiteral;
+
+    let bytes: Vec<u8> = (0..=255).collect();
+    let expect = format!("中文字0x{}", const_hex::encode_upper(&bytes));
+
+    for capacity in [0, expect.len() * 2] {
+        let mut s = String::with_capacity(capacity);
+        s.push_str("中文字");
+        bytes.append_sql_literal(&mut s).unwrap();
+        assert_eq!(expect, s);
+
+        s.clear();
+        s.push_str("中文字");
+        bytes.append_sql_literal(&mut s).unwrap();
+        assert_eq!(expect, s);
+    }
+}
+
+#[test]
 fn test_null() {
     test_literal("NULL", None::<bool>);
     test_literal("NULL", None::<i8>);

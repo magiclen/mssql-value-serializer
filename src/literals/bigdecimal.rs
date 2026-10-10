@@ -15,7 +15,7 @@ impl SqlServerLiteral for BigDecimal {
 
     #[inline]
     fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-        write!(out, "{}", self).unwrap();
+        write!(out, "{}", self)?;
 
         Ok(())
     }
@@ -33,7 +33,7 @@ impl SqlServerLiteral for BigDecimalRef<'_> {
 
     #[inline]
     fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-        write!(out, "{}", self).unwrap();
+        write!(out, "{}", self)?;
 
         Ok(())
     }

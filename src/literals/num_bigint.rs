@@ -15,7 +15,7 @@ impl SqlServerLiteral for BigInt {
 
     #[inline]
     fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-        write!(out, "{}", self).unwrap();
+        write!(out, "{}", self)?;
 
         Ok(())
     }
@@ -33,7 +33,7 @@ impl SqlServerLiteral for BigUint {
 
     #[inline]
     fn append_sql_literal_fmt(&self, out: &mut Formatter<'_>) -> Result<(), SqlLiteralError> {
-        write!(out, "{}", self).unwrap();
+        write!(out, "{}", self)?;
 
         Ok(())
     }
